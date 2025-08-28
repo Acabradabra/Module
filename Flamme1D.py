@@ -64,7 +64,7 @@ def Adia1D(phi,X0,Ti,Pi,grid0,Name,INox,Tol,Tstep,Rafcrit,gas,view):
 	elif Rafcrit==0:
 	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
 
-	f.transport_model='Mix'
+	f.transport_model='mixture-averaged'
 	# f.soret_enabled=True
 	f.energy_enabled=True
 	f.radiation_enabled=False
@@ -136,7 +136,7 @@ def Adia1D_0(Xi,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,view):
 	elif Rafcrit==0:
 	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
 
-	f.transport_model='Mix'
+	f.transport_model='mixture-averaged'
 	f.energy_enabled=True
 	f.radiation_enabled=Ray
 
@@ -148,7 +148,7 @@ def Adia1D_0(Xi,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,view):
 	
 	# print('Adia-D')
 
-	if conv: f.save(filename=NameOut,loglevel=0) # ; print('=> Adia Save')
+	if conv: f.save(filename=NameOut,loglevel=0,overwrite=True) # ; print('=> Adia Save')
 
 	return(f,conv)
 
@@ -548,7 +548,8 @@ def OldCSV(f,name,spe,Idou,view):
     if view>0: print('\n==> Writing done')
 #---------------------------------------------------------------------
 def ExtractSubmech(schem,view):
-    all_spe=ct.Species.listFromFile(schem+'.cti')
+    input_file=schem+'.yaml'
+    all_spe=ct.Species.list_from_file(input_file,section='species')
     Spe=[ s for s in all_spe 
     if  not 'C'  in s.composition 
     and not 'Ar' in s.composition 
@@ -575,16 +576,14 @@ def ExtractSubmech(schem,view):
         print(NOx)
         print(INOx)
         print('NNOx',NNOx,'\n')
-
-
     
-    all_reac=ct.Reaction.listFromFile(schem+'.cti')
+    ref_phase = ct.Solution(thermo='ideal-gas',kinetics='gas',species=all_spe)
+    all_reac=ct.Reaction.list_from_file(input_file,ref_phase)
     Reac=[ r for r in all_reac 
     if all(Reactants in Spe_name for Reactants in r.reactants) 
     and all(Products in Spe_name for Products  in r.products) ]
     
-    gas=ct.Solution(thermo='IdealGas',kinetics='GasKinetics',
-        species=Spe,reactions=Reac)
+    gas=ct.Solution(thermo='ideal-gas',kinetics='gas',transport_model='mixture-averaged',species=Spe,reactions=Reac)
     Reac=gas.reaction_equations()
     Nreac=len(Reac)
 
