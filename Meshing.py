@@ -30,6 +30,13 @@ def ht_all(H,r,n) : return([ ht(h,r,n) for h in H ])
 #===================================================================================
 def ht(h0,r,n) : return(h0*(r**n-1)/(r-1))
 #===================================================================================
+def h0(L,r,N) : return( L*(r-1)/(r**N-1) )
+#===================================================================================
+def h_smooth(r,N,hf) : h0=hf/r**(N-1) ; Lt=h0*(r**N-1)/(r-1) ; return(h0,Lt)
+#===================================================================================
+def Nbl1(r,L,h0) : return( log(1+(r-1)*L/h0)/log(r) )
+def Nbl2(h0,hn,r) : N=int(round(1+log(hn/h0)/log(r),0)) ; r2=(hn/h0)**(1/(N-1)) ; return(N,r2)
+#===================================================================================
 def Corner(Pm,N0,N1,n0,n1,nm,l,h,Nc) :
 	Vp=[]
 	P0=array(Pm)+Nc*l*array(N0)
@@ -41,18 +48,16 @@ def Corner(Pm,N0,N1,n0,n1,nm,l,h,Nc) :
 #===================================================================================
 def P_add(geom,Points,Normals,H0in,L0in,rbd,n) :
 	N=len(Points)
-	if n==0 :
-		Ht=N*[0]
-	else :
-		Ht=ht_all( H0in,rbd,n )
+	if n==0 : Ht=N*[0]
+	else    : Ht=ht_all( H0in,rbd,n )
 	return([ geom.add_point(Points[p]+Normals[p]*Ht[p],L0in[p]) for p in range(N) ])
 #===================================================================================
 def L_add(geom,P0,P,P1) :
 	N=len(P)
-	L=[  geom.add_line(P0  ,P[0]  ) ]
-	L+=[ geom.add_line(P[p],P[p+1]) for p in range(N-1) ]
-	if P1 :
-		L+=[ geom.add_line(P[-1],P1) ]
+	if P0 : L=[  geom.add_line(P0  ,P[0]  ) ]
+	else  : L=[]
+	L+=[         geom.add_line(P[p] ,P[p+1]) for p in range(N-1) ]
+	if P1 : L+=[ geom.add_line(P[-1],P1) ]
 	return(L)
 #===================================================================================
 def S_add(geom,VL) :

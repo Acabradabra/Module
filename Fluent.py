@@ -122,6 +122,115 @@ def Data_CondF( D_f,P_f,   Nft,Nfi) : MaxD=max(D_f) ; D_f[D_f==MaxD]=MaxD*(1-1e-
 # def Data_CondFC(D_f,P_f,If,Nft,Nfi) : MaxD=max(D_f) ; D_f[D_f==MaxD]=MaxD*(1-1e-13) ; return( append(NodeDataF(D_f,P_f,Nft,Nfi),D_f[If-Nfi*(len(D_f)==(Nft-Nfi))]) )
 def Data_CondFC(D_f,P_f,If,Nft,Nfi) : MaxD=max(D_f) ; D_f[D_f==MaxD]=MaxD*(1-1e-13) ; return(        NodeDataF(D_f,P_f,Nft,Nfi))
 #===================================================================
+def Space(T,M) :
+    Id,Ms=[],[]
+    if 'x-coordinate' in T : Ix=FindData('x-coordinate',T) ; Mx=M[:,Ix] ; Id.append(Ix) ; Ms.append(Mx) #; print('=> Mx : {:.1f} , {:.1f}'.format(min(Mx),max(Mx)))
+    if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; Id.append(Iy) ; Ms.append(My) #; print('=> My : {:.1f} , {:.1f}'.format(min(My),max(My)))
+    if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Id.append(Iz) ; Ms.append(Mz) #; print('=> Mz : {:.1f} , {:.1f}'.format(min(Mz),max(Mz)))
+    return(Id,Ms)
+#===================================================================
+def ReadSurf(f) : 
+    # print('=> Reading : '+f)
+    op=open(f) ; L0=op.readline() ; op.closed
+    return( [ s.strip() for s in L0[:-1].split(',')] , loadtxt(f,skiprows=1,delimiter=',') )
+#===================================================================
+def FindData(v,T) : return([ i for i in range(len(T)) if v in T[i] ][0])
+#===================================================================
+def Close(tri,M,tol) : return(abs(M[tri.triangles]-min(M))<tol)
+#===================================================================
+def CleanTri(tri,tol) :
+    xy=dstack((tri.x[tri.triangles],tri.y[tri.triangles]))
+    S2=cross(xy[:,1,:]-xy[:,0,:],xy[:,2,:]-xy[:,0,:])
+    return(S2<tol)
+#===================================================================
+def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
+    cmap=mtp.colormaps[cmap0]
+    tol=1e-5
+    vmax,vmin=0,0
+    if len(BD)>0 : [vmin,vmax]=BD
+    (T,M)=ReadSurf(surf)
+    if var=='tourb' :
+        Mk=M[:,FindData('turb-kinetic-energy',T)]
+        Me=M[:,FindData('turb-diss-rate',T)]
+        Mv=100*0.09*Mk**1.5/Me
+    elif var=='mixC' :
+        iopt=OPT.index('MIXC')
+        [Mol_m,Ych4,Yco2,Yco]=OPT[iopt+1]
+        Ic1=T.index('ch4')
+        Ic2=T.index('co2')
+        Ic3=T.index('co')
+        Yc_f=Yc(Ych4[0],Yco2[0],Yco[0],Mol_m)
+        Yc_p=Yc(Ych4[1],Yco2[1],Yco[1],Mol_m)
+        Yc_o=Yc(Ych4[2],Yco2[2],Yco[2],Mol_m)
+        Yc_g=Yc(M[:,Ic1],M[:,Ic2],M[:,Ic3],Mol_m)
+        Mv=(Yc_g-Yc_o)/(Yc_f-Yc_o)
+    elif var=='co' :
+    else : Ivr=FindData(var,T) ; Mv=M[:,Ivr]
+    # Ivr=T.index(var)
+    Ibd=FindData('boundary-cell-dist',T)
+    Ivl=FindData('velocity-magnitude',T)
+    if 'x-coordinate' in T : Ix=FindData('x-coordinate',T) ; Mx=M[:,Ix] ; Mx0,Mx1=min(Mx),max(Mx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Mx0,Mx1) )
+    if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; My0,My1=min(My),max(My) ; print( '=> My : {:.1f} , {:.1f}'.format(My0,My1) )
+    if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Mz0,Mz1=min(Mz),max(Mz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Mz0,Mz1) )
+    Selzx=[]
+    XY='xy' in surf or True
+    ZX='zx' in surf                                
+    YZ= 'yz' in surf or 'tga' in surf
+    IN='in1' in surf or 'in2' in surf
+    OU='ou'  in surf              
+    if   XY : tri=mtp.tri.Triangulation(Mx,My)
+    elif ZX : tri=mtp.tri.Triangulation(Mx,Mz) ; Selzx=any(Close(tri,Mx,tol)*Close(tri,Mz,tol),axis=1)
+    elif YZ : tri=mtp.tri.Triangulation(My,Mz)
+    elif IN : tri=mtp.tri.Triangulation(My,Mz)
+    elif OU : tri=mtp.tri.Triangulation(My,Mx)
+    if max(M[:,Ibd])>2 : Mask0=sum(M[tri.triangles,Ibd]<1.01,axis=1)==3
+    else               : Mask0=sum(M[tri.triangles,Ivl]==0  ,axis=1)==3
+    if len(Selzx)>0 : Mask0[Selzx]=False
+    if vmax!=0 : MaskV=all(Mv[tri.triangles]>vmax,axis=1) ; Mask0[MaskV]=True ; Mv[Mv>vmax]=vmax
+    if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
+    MS0=CleanTri(tri,1e-10) ; Mask0[MS0]=True
+    tri.set_mask( Mask0 )
+    print('=> ',lab,'   :   ',min(Mv),max(Mv))
+    if  'LINES' in OPT : #====================> Lines
+        iopt=OPT.index('LINES')
+        Vx=OPT[iopt+1]
+        print('=> Lines')
+        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],False,name,fs)
+        for x in Vx : ax.plot( 2*[x],[My0,My1],':w' )
+        fig.savefig(name)
+    elif 'QUIV' in OPT : #====================> Quiver
+        iopt=OPT.index('QUIV')
+        [Ni,Nj,s]=OPT[iopt+1]
+        Vx0=linspace(xlim[0],xlim[1],Ni)
+        Vy0=linspace(ylim[0],ylim[1],Nj)
+        print('=> Quiver')
+        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],False,name,fs)
+        # fig,ax=plt.subplots()
+        IUx=FindData('x-velocity',T)
+        IUy=FindData('y-velocity',T)
+        IUz=FindData('z-velocity',T)
+        if   XY : Xi,Xj=Mx,My ; Vi,Vj=M[:,IUx],M[:,IUy]
+        elif ZX : Xi,Xj=Mx,Mz ; Vi,Vj=M[:,IUx],M[:,IUz]
+        elif YZ : Xi,Xj=My,Mz ; Vi,Vj=M[:,IUy],M[:,IUz]
+        f_Vi=mtp.tri.LinearTriInterpolator( tri,Vi )
+        f_Vj=mtp.tri.LinearTriInterpolator( tri,Vj )
+        (MXi,MXj)=meshgrid(Vx0,Vy0)
+        MVi=f_Vi(MXi,MXj)
+        MVj=f_Vj(MXi,MXj)
+        ax.quiver(MXi,MXj,MVi,MVj,color='w',scale=s)
+        fig.savefig(name)
+    elif 'PROF' in OPT : #====================> profiles
+        iopt=OPT.index('PROF')
+        [P0,P1,Np,fplot]=OPT[iopt+1] ; Np=int(Np)
+        Vi=linspace(P0[0],P1[0],Np)
+        Vj=linspace(P0[1],P1[1],Np)
+        f=mtp.tri.LinearTriInterpolator( tri,Mv ) ; Prof=f(Vi,Vj)
+        fplot(Vi,Vj,Prof,name)
+        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],False,name,fs)
+        ax.plot([P0[0],P1[0]],[P0[1],P1[1]],':w')
+        fig.savefig(name)
+    else : Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],True,name,fs)
+#===================================================================
 def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     lab  =v[1]
     lim  =v[3] #; print(lim)
@@ -151,8 +260,8 @@ def Field2(tri,F,lab,Log,xlim,ylim,vmax,ticks,cmap,CMask,SAVE,name,fs) :
     # fig.suptitle(lab,fontsize=20)
     ax.set_title(lab,fontsize=20)
     ax.set_aspect('equal')
-    # ax.set_xticks([])
-    # ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_yticks([])
     if len(xlim) : ax.set_xlim(xlim[0],xlim[1])
     if len(ylim) : ax.set_ylim(ylim[0],ylim[1])
     # if vmax>0 : F[F>vmax]=vmax
@@ -478,4 +587,6 @@ def ChocMass(P0,T0,Sc,Thermo) :
 def LastMass(frep,Nav) :
 	D_in=loadtxt(frep,skiprows=3,delimiter=' ') ; Min=D_in[:,1]
 	return(mean(Min[:-Nav]))
+#===================================================================
+def Yc(Ych4,Yco2,Yco,M) : return( M[0]*(Ych4/M[1]+Yco2/M[2]+Yco/M[3]) )
 #===================================================================
