@@ -134,7 +134,8 @@ def ReadSurf(f) :
     op=open(f) ; L0=op.readline() ; op.closed
     return( [ s.strip() for s in L0[:-1].split(',')] , loadtxt(f,skiprows=1,delimiter=',') )
 #===================================================================
-def FindData(v,T) : return([ i for i in range(len(T)) if v in T[i] ][0])
+# def FindData(v,T) : return([ i for i in range(len(T)) if v in T[i] ][0])
+def FindData(v,T) : return( T.index(v) )
 #===================================================================
 def Close(tri,M,tol) : return(abs(M[tri.triangles]-min(M))<tol)
 #===================================================================
@@ -165,7 +166,9 @@ def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
         Yc_g=Yc(M[:,Ic1],M[:,Ic2],M[:,Ic3],Mol_m)
         Mv=(Yc_g-Yc_o)/(Yc_f-Yc_o)
     elif var=='co' :
-    else : Ivr=FindData(var,T) ; Mv=M[:,Ivr]
+        Ivr=T.index('co') ; Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
+    # else : Ivr=FindData(var ,T) ; Mv=M[:,Ivr]
+    else : Ivr=T.index(var) ; Mv=M[:,Ivr]
     # Ivr=T.index(var)
     Ibd=FindData('boundary-cell-dist',T)
     Ivl=FindData('velocity-magnitude',T)
