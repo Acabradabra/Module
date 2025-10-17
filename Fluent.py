@@ -7,6 +7,23 @@ import Utilities as util
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 (plt,mtp)=util.Plot0()
+Mol_m={
+    'C':12,
+    'O':16,
+    'H':1,
+    'CH4':16,
+    'CO2':44,
+    'CO':28,
+    'H2O':18,
+    'O2':32,
+    'N2':28,
+    'H2':2
+    }
+
+Spe_Laera=['O2','H2O','CH4','CO','CO2','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','N2']
+Spe_H2Air=['H2','O2','H2O','N2']
+Spe_UCSD=['H2','H','O2','OH','O','H2O','HO2','H2O2','N2']
+
 #===================================================================
 def Tri(X,Y) :
 # def Tri(X,Y,Geo) :
@@ -21,6 +38,37 @@ def Tri(X,Y) :
 #===================================================================
 # def TriMask(Xc,Yc,Fm) :
     # tri=mtp.tri.Triangulation( Xc,Yc ) ; tri.set_mask(Mask(tri,Xc,Yc))
+#===================================================================
+def PlotVar(ax,c,var,X,M,T,TXT,BD,PARAM) :
+    (Xtxt,txt)=TXT
+    if var=='mix' :
+        if 'ch4' in T : 
+            [BC_f,BC_o]=PARAM
+            Ic1=T.index('ch4')
+            Ic2=T.index('co2')
+            Ic3=T.index('co')
+            Zc=Yc( {'CH4':M[:,Ic1],'CO2':M[:,Ic2],'CO':M[:,Ic3]} , Mol_m )
+            Yc_f=Yc(BC_f,Mol_m)
+            Yc_o=Yc(BC_o,Mol_m)
+            Var=(Zc-Yc_o)/(Yc_f-Yc_o)
+        elif 'h2' in T :
+            [BC_f,BC_o]=PARAM
+            Ih1=T.index('h2')
+            Ih2=T.index('h2o')
+            Zh=Yh( {'CH4':0*M[:,Ih1],'H2':M[:,Ih1],'H2O':M[:,Ih2]} , Mol_m )
+            Yh_f=Yh(BC_f,Mol_m)
+            Yh_o=Yh(BC_o,Mol_m)
+            Var=(Zh-Yh_o)/(Yh_f-Yh_o)
+    elif var=='co' :
+        I=T.index('co')
+        Var=M[:,I]*1e2
+    else :
+        I=T.index(var)
+        Var=M[:,I]
+    ax.plot( X,Var,c )
+    ax.text( Xtxt[0],Xtxt[1],txt )
+    ax.set_xlim((BD[0],BD[1]))
+    ax.set_ylim((BD[2],BD[3]))
 #===================================================================
 def Read_Faces(f_cas,num,names1) :
     cas=h5.File(f_cas)
@@ -156,15 +204,25 @@ def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
         Mv=100*0.09*Mk**1.5/Me
     elif var=='mixC' :
         iopt=OPT.index('MIXC')
-        [Mol_m,Ych4,Yco2,Yco]=OPT[iopt+1]
+        [Mol_m,Y_f,Y_o]=OPT[iopt+1]
         Ic1=T.index('ch4')
         Ic2=T.index('co2')
         Ic3=T.index('co')
-        Yc_f=Yc(Ych4[0],Yco2[0],Yco[0],Mol_m)
-        Yc_p=Yc(Ych4[1],Yco2[1],Yco[1],Mol_m)
-        Yc_o=Yc(Ych4[2],Yco2[2],Yco[2],Mol_m)
-        Yc_g=Yc(M[:,Ic1],M[:,Ic2],M[:,Ic3],Mol_m)
+        Yc_f=Yc(Y_f,Mol_m)
+        Yc_o=Yc(Y_o,Mol_m)
+        Yc_g=Yc({'CH4':M[:,Ic1],'CO2':M[:,Ic2],'CO':M[:,Ic3]},Mol_m)
         Mv=(Yc_g-Yc_o)/(Yc_f-Yc_o)
+    elif var=='mixH' :
+        iopt=OPT.index('MIXH')
+        [Mol_m,Y_f,Y_o]=OPT[iopt+1]
+        Y_h2 =M[:,T.index('h2')]
+        Y_h2o=M[:,T.index('h2o')]
+        if 'ch4' in T : Y_ch4=M[:,T.index('ch4')]
+        else          : Y_ch4=0*Y_h2
+        Yh_f=Yh(Y_f,Mol_m)
+        Yh_o=Yh(Y_o,Mol_m)
+        Yh_g=Yh({'H2':Y_h2,'H2O':Y_h2o,'CH4':Y_ch4},Mol_m)
+        Mv=(Yh_g-Yh_o)/(Yh_f-Yh_o)
     elif var=='co' :
         Ivr=T.index('co') ; Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
     # else : Ivr=FindData(var ,T) ; Mv=M[:,Ivr]
@@ -193,46 +251,53 @@ def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
     if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
     MS0=CleanTri(tri,1e-10) ; Mask0[MS0]=True
     tri.set_mask( Mask0 )
-    print('=> ',lab,'   :   ',min(Mv),max(Mv))
-    if  'LINES' in OPT : #====================> Lines
-        iopt=OPT.index('LINES')
-        Vx=OPT[iopt+1]
-        print('=> Lines')
+    print('=> ',lab,'   :   ',min(Mv),max(Mv)) ; f=0
+    if len(OPT)==0 : Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],True,name,fs)
+    else :
         (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],False,name,fs)
-        for x in Vx : ax.plot( 2*[x],[My0,My1],':w' )
+        if  'LINES' in OPT : #====================> Lines
+            print('=> Lines')
+            iopt=OPT.index('LINES')
+            Vx=OPT[iopt+1]
+            if len(ylim)==0 : ylim=[My0,My1]
+            for x in Vx : ax.plot( 2*[x],ylim,':w' )
+        if 'QUIV' in OPT : #====================> Quiver
+            print('=> Quiver')
+            iopt=OPT.index('QUIV')
+            [Ni,Nj,s]=OPT[iopt+1]
+            Vx0=linspace(xlim[0],xlim[1],Ni)
+            Vy0=linspace(ylim[0],ylim[1],Nj)
+            IUx=FindData('x-velocity',T)
+            IUy=FindData('y-velocity',T)
+            IUz=FindData('z-velocity',T)
+            if   XY : Xi,Xj=Mx,My ; Vi,Vj=M[:,IUx],M[:,IUy]
+            elif ZX : Xi,Xj=Mx,Mz ; Vi,Vj=M[:,IUx],M[:,IUz]
+            elif YZ : Xi,Xj=My,Mz ; Vi,Vj=M[:,IUy],M[:,IUz]
+            f_Vi=mtp.tri.LinearTriInterpolator( tri,Vi )
+            f_Vj=mtp.tri.LinearTriInterpolator( tri,Vj )
+            (MXi,MXj)=meshgrid(Vx0,Vy0)
+            MVi=f_Vi(MXi,MXj)
+            MVj=f_Vj(MXi,MXj)
+            ax.quiver(MXi,MXj,MVi,MVj,color='w',scale=s)
+        if 'PROF' in OPT : #====================> profiles
+            print('=> Profiles')
+            iopt=OPT.index('PROF')
+            [P0,P1,Np,fplot]=OPT[iopt+1] ; Np=int(Np)
+            Vi=linspace(P0[0],P1[0],Np)
+            Vj=linspace(P0[1],P1[1],Np)
+            f=mtp.tri.LinearTriInterpolator( tri,Mv ) ; Prof=f(Vi,Vj)
+            fplot(Vi,Vj,Prof,name)
+            ax.plot([P0[0],P1[0]],[P0[1],P1[1]],':w')
+        if 'ISO' in OPT : #====================> Isolines
+            print('=> isolines')
+            iopt=OPT.index('ISO')
+            Viso=OPT[iopt+1]
+            f=ax.tricontour( tri,Mv,levels=Viso,colors='w',linewidths=1 )
+            for path in f.get_paths() :
+                 points=path.vertices
+                 print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
         fig.savefig(name)
-    elif 'QUIV' in OPT : #====================> Quiver
-        iopt=OPT.index('QUIV')
-        [Ni,Nj,s]=OPT[iopt+1]
-        Vx0=linspace(xlim[0],xlim[1],Ni)
-        Vy0=linspace(ylim[0],ylim[1],Nj)
-        print('=> Quiver')
-        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],False,name,fs)
-        # fig,ax=plt.subplots()
-        IUx=FindData('x-velocity',T)
-        IUy=FindData('y-velocity',T)
-        IUz=FindData('z-velocity',T)
-        if   XY : Xi,Xj=Mx,My ; Vi,Vj=M[:,IUx],M[:,IUy]
-        elif ZX : Xi,Xj=Mx,Mz ; Vi,Vj=M[:,IUx],M[:,IUz]
-        elif YZ : Xi,Xj=My,Mz ; Vi,Vj=M[:,IUy],M[:,IUz]
-        f_Vi=mtp.tri.LinearTriInterpolator( tri,Vi )
-        f_Vj=mtp.tri.LinearTriInterpolator( tri,Vj )
-        (MXi,MXj)=meshgrid(Vx0,Vy0)
-        MVi=f_Vi(MXi,MXj)
-        MVj=f_Vj(MXi,MXj)
-        ax.quiver(MXi,MXj,MVi,MVj,color='w',scale=s)
-        fig.savefig(name)
-    elif 'PROF' in OPT : #====================> profiles
-        iopt=OPT.index('PROF')
-        [P0,P1,Np,fplot]=OPT[iopt+1] ; Np=int(Np)
-        Vi=linspace(P0[0],P1[0],Np)
-        Vj=linspace(P0[1],P1[1],Np)
-        f=mtp.tri.LinearTriInterpolator( tri,Mv ) ; Prof=f(Vi,Vj)
-        fplot(Vi,Vj,Prof,name)
-        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],False,name,fs)
-        ax.plot([P0[0],P1[0]],[P0[1],P1[1]],':w')
-        fig.savefig(name)
-    else : Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],True,name,fs)
+    # return(f)
 #===================================================================
 def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     lab  =v[1]
@@ -276,7 +341,8 @@ def Field2(tri,F,lab,Log,xlim,ylim,vmax,ticks,cmap,CMask,SAVE,name,fs) :
     if Log : f=ax.tricontourf( tri,F,levels=[ 10**n for n in linspace(0,7,101) ] , cmap=cmap ,vmax=vmax , norm = LogNorm() )
     else   : f=ax.tricontourf( tri,F,levels=int(100) , cmap=cmap ,vmax=vmax )
     #=====> Mask
-    if len(CMask) : ax.fill(CMask[0],CMask[1],facecolor='white',edgecolor='black')
+    # if len(CMask) : ax.fill(CMask[0],CMask[1],facecolor='white',edgecolor='black')
+    if len(CMask) : ax.fill(CMask[0],CMask[1],facecolor='white',edgecolor='none')
     #=====> Colorbar
     divider = make_axes_locatable(ax) ; cax = divider.append_axes("right", size="2%", pad=0.25)
     if len(ticks) : cb=fig.colorbar(f,cax=cax,ticks=ticks,extend='both') #,extendrect=False)
@@ -591,5 +657,7 @@ def LastMass(frep,Nav) :
 	D_in=loadtxt(frep,skiprows=3,delimiter=' ') ; Min=D_in[:,1]
 	return(mean(Min[:-Nav]))
 #===================================================================
-def Yc(Ych4,Yco2,Yco,M) : return( M[0]*(Ych4/M[1]+Yco2/M[2]+Yco/M[3]) )
+def Yc(Y,M) : Spe=['CH4','CO2','CO']       ; Id=[1,1,1]   ; return( M['C']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
+def Yo(Y,M) : Spe=['O2' ,'CO2','CO','H2O'] ; Id=[2,2,1,1] ; return( M['O']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
+def Yh(Y,M) : Spe=['CH4','H2O','H2']       ; Id=[4,2,2]   ; return( M['H']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
 #===================================================================

@@ -13,6 +13,7 @@ import math
 import operator
 from functools import reduce
 # import cantera as ct
+import matplotlib as mtp
 
 #---------------------------------------------------------------------
 ######################################             fonction          #
@@ -212,6 +213,12 @@ def Error(msg) : Section(msg,0,3,'r')
 def ERROR(msg) : sys.exit(3*'\n'+'\033[31m '+5*'='+'>  ERROR :'+msg+'\033[0m'+3*'\n')
 #---------------------------------------------------------------------
 ######################################             Plot              #
+#---------------------------------------------------------------------
+def PlotIm(ax,pic,Ext) :
+	im=mtp.image.imread(pic)
+	(Ni,Nj,Nk)=im.shape
+	ax.imshow( im,extent=Ext )
+	ax.set_aspect( (Ext[1]/Ext[3])*(Ni/Nj) )
 #---------------------------------------------------------------------
 def Plot0():
 	import matplotlib.pyplot as plt
