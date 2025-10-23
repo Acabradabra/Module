@@ -737,3 +737,12 @@ def WriteMat(M,Title,name,n1,n2,sep,form) :
 		for t in Title : file.write( t+'\n' )
 		for m in M     : file.write( printround2(m,n1,n2,sep,form)+'\n' )
 	file.closed
+#---------------------------------------------------------------------
+def Titre(file,sep) :
+	op=open(file) ; L0=op.readline() ; op.closed
+	return([ s.strip() for s in L0[:-1].split(sep)])
+#---------------------------------------------------------------------
+def ReadCSV(file) :
+	Tt=Titre(file,',')
+	MD=np.loadtxt(file,skiprows=1,delimiter=',')
+	return({ s:MD[:,i] for i,s in enumerate(Tt) })

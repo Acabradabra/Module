@@ -2,13 +2,26 @@ import cantera as ct
 import numpy as np
 import Utilities as util
 from scipy.interpolate import interp1d
+import sys
 
 (plt,mtp)=util.Plot0()
 
+Xf_GN={ 'CH4':0.925,'C2H6':0.041,'C3H8':0.009,'CO2':0.010,'N2':0.015 }
+Xa_GN=2*Xf_GN['CH4']+2.5*Xf_GN['C2H6']+10*Xf_GN['C3H8']
+
+#---------------------------------------------------------------------
+def r_N2(X0) : return((1-X0)/X0)
+def r_O2(hyb) : return(2-3*hyb/2)
+#---------------------------------------------------------------------
+def Xu(phi,hyb,a,oxy) :
+	if   hyb==1  : return({                     'H2':phi     , 'O2': 0.5 , 'N2': 0.5*a })
+	elif hyb==0  : return({ 'CH4':  phi       ,                'O2': 2   , 'N2':   2*a })
+	elif 0<hyb<1 : return({ 'CH4':phi*(1-hyb) , 'H2':phi*hyb , 'O2':oxy  , 'N2': a*oxy })
+	elif hyb==2  : return({ 'CH4':Xf_GN['CH4'],'C2H6':Xf_GN['C2H6'],'C3H8':Xf_GN['C3H8'],'O2':Xa_GN/phi,'N2':a*Xa_GN/phi })
+	else            : sys.exit('Error : pm.hyb must be in [0-1,2] : ',hyb)
 #---------------------------------------------------------------------
 def Adia0D(phi,X0,Ti,Pi,INox,Tol,gas):
 	
-
 	XY='HP'
 	solv='auto'
 	MaxStep=10000
@@ -53,16 +66,11 @@ def Adia1D(phi,X0,Ti,Pi,grid0,Name,INox,Tol,Tstep,Rafcrit,gas,view):
 	f.max_grid_points=5000
 	f.set_time_step(Tstep,[2,5,10,20,50,80,130,200,500,1000])
 	
-	if Rafcrit==4:
-	        f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
-	elif Rafcrit==3:
-	        f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0      )
-	elif Rafcrit==2:
-	        f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==1:
-	        f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
-	elif Rafcrit==0:
-	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
+	if   Rafcrit==4 : f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
+	elif Rafcrit==3 : f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0      )
+	elif Rafcrit==2 : f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
+	elif Rafcrit==1 : f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
+	elif Rafcrit==0 : f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
 
 	f.transport_model='mixture-averaged'
 	# f.soret_enabled=True
@@ -123,18 +131,12 @@ def Adia1D_0(Xi,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,view):
 	f.max_grid_points=50000
 	f.set_time_step(Tstep,[2,5,10,20,50,100,200,500,1000,1e5,1e6,1e7])
 	
-	if Rafcrit==4:
-	        f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
-	elif Rafcrit==3:
-	        f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0      )
-	elif Rafcrit==2.5:
-	        f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==2:
-	        f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==1:
-	        f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
-	elif Rafcrit==0:
-	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
+	if   Rafcrit==4   : f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
+	elif Rafcrit==3   : f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0      )
+	elif Rafcrit==2.5 : f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.01,   prune=0.0075 )
+	elif Rafcrit==2   : f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
+	elif Rafcrit==1   : f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
+	elif Rafcrit==0   : f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
 
 	f.transport_model='mixture-averaged'
 	f.energy_enabled=True
@@ -185,18 +187,13 @@ def Burner1D(phi,X0,mdot,Ti,Pi,grid0,Name,INox,Tol,Tstep,Rafcrit,gas,view):
 	f.max_grid_points=5000
 	
 	f.set_time_step(Tstep,[2,5,10,20,50,80,130,200,500,1000])
-	if Rafcrit==4:
-	        f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
-	elif Rafcrit==3:
-	        f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0 )
-	elif Rafcrit==2:
-	        f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==1:
-	        f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
-	elif Rafcrit==0:
-	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
+	if   Rafcrit==4 : f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
+	elif Rafcrit==3 : f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0      )
+	elif Rafcrit==2 : f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
+	elif Rafcrit==1 : f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
+	elif Rafcrit==0 : f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
 	
-	f.transport_model='Mix'
+	f.transport_model='mixture-averaged'
 	f.energy_enabled=True
 	f.radiation_enabled=False
 	
@@ -229,12 +226,8 @@ def Burner1D(phi,X0,mdot,Ti,Pi,grid0,Name,INox,Tol,Tstep,Rafcrit,gas,view):
 
 #---------------------------------------------------------------------
 def Burner1D_0(Xi,mdot,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,view):
-	
-	# a=(1-X0)/X0
-	# Xi={'H2':2,'O2': 1/phi ,'N2': a/phi}
 
-	
-	########## --------------------> Gas state + Flame
+	#===============================> Gas state + Flame
 	gas.TPX=Ti,Pi,Xi
 	f=ct.BurnerFlame(gas,grid0)
 
@@ -250,19 +243,13 @@ def Burner1D_0(Xi,mdot,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,view
 	f.max_grid_points=5000
 	
 	f.set_time_step(Tstep,[2,5,10,20,50,80,130,200,500,1000,5000,10000])
-	if Rafcrit==4:
-	        f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
-	elif Rafcrit==3:
-	        # f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0 )
-	        f.set_refine_criteria(ratio=2.0, slope=0.025, curve=0.005,  prune=0.0025 )
-	elif Rafcrit==2:
-	        f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==1:
-	        f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
-	elif Rafcrit==0:
-	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
+	if   Rafcrit==4 : f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
+	elif Rafcrit==3 : f.set_refine_criteria(ratio=2.0, slope=0.025, curve=0.005, prune=0.0025 )
+	elif Rafcrit==2 : f.set_refine_criteria(ratio=5.0, slope=0.05 , curve=0.01 , prune=0.0075 )
+	elif Rafcrit==1 : f.set_refine_criteria(ratio=5.0, slope=0.1  , curve=0.05 , prune=0.025  )
+	elif Rafcrit==0 : f.set_refine_criteria(ratio=5.0, slope=0.5  , curve=0.1  , prune=0.075  )
 	
-	f.transport_model='Mix'
+	f.transport_model='mixture-averaged'
 	f.energy_enabled=True
 	f.radiation_enabled=Ray
 	
@@ -270,7 +257,7 @@ def Burner1D_0(Xi,mdot,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,view
 	try : f.solve(loglevel=view,refine_grid=True,auto=False)
 	except : conv=False
 	
-	if conv: f.save(filename=NameOut,loglevel=0)
+	if conv: f.save(filename=NameOut,loglevel=0,overwrite=True)
 
 	return(f,conv)
 
@@ -292,17 +279,11 @@ def CounterFlow(Xi,Mdot,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,vie
 	f.max_grid_points=5000
 	
 	f.set_time_step(Tstep,[2,5,10,20,50,80,130,200,500,1000,5000,10000])
-	if Rafcrit==4:
-	        f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
-	elif Rafcrit==3:
-	        # f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0 )
-	        f.set_refine_criteria(ratio=2.0, slope=0.025, curve=0.005,  prune=0.0025 )
-	elif Rafcrit==2:
-	        f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==1:
-	        f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
-	elif Rafcrit==0:
-	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
+	if   Rafcrit==4 : f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
+	elif Rafcrit==3 : f.set_refine_criteria(ratio=2.0, slope=0.025, curve=0.005,  prune=0.0025 )
+	elif Rafcrit==2 : f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
+	elif Rafcrit==1 : f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
+	elif Rafcrit==0 : f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
 	
 	f.transport_model='Mix'
 	f.energy_enabled=True
@@ -332,17 +313,11 @@ def TwinFlames(Xi,mdot,Ti,Pi,grid0,NameIn,NameOut,Tol,Tstep,Rafcrit,gas,Ray,view
 	f.max_grid_points=5000
 	
 	f.set_time_step(Tstep,[2,5,10,20,50,80,130,200,500,1000,5000,10000])
-	if Rafcrit==4:
-	        f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
-	elif Rafcrit==3:
-	        # f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0 )
-	        f.set_refine_criteria(ratio=2.0, slope=0.025, curve=0.005,  prune=0.0025 )
-	elif Rafcrit==2:
-	        f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==1:
-	        f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
-	elif Rafcrit==0:
-	        f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
+	if   Rafcrit==4 : f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
+	elif Rafcrit==3 : f.set_refine_criteria(ratio=2.0, slope=0.025, curve=0.005,  prune=0.0025 )
+	elif Rafcrit==2 : f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
+	elif Rafcrit==1 : f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
+	elif Rafcrit==0 : f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
 	
 	f.transport_model='Mix'
 	f.energy_enabled=True
@@ -361,13 +336,13 @@ def LocateNOx(Spe,Nspe):
 	INOx=[]
 	NOx=[]
 	for i in range(Nspe):
-	        spe=Spe[i]
-	        spe2=set(spe)
-	        spe2=[ x for x in spe2 if not x.isnumeric() ]
-	        spe2=sorted(spe2)
-	        if len(spe2)==2 and spe2[0]=='N' and spe2[1]=='O':
-	                INOx.append(Spe.index(spe))
-	                NOx.append(spe)
+		spe=Spe[i]
+		spe2=set(spe)
+		spe2=[ x for x in spe2 if not x.isnumeric() ]
+		spe2=sorted(spe2)
+		if len(spe2)==2 and spe2[0]=='N' and spe2[1]=='O':
+			INOx.append(Spe.index(spe))
+			NOx.append(spe)
 	NNOx=len(NOx)
 
 	return(NOx,NNOx,INOx)
@@ -645,4 +620,30 @@ def StrainRates(f):
     f_X=interp1d( Hr[:ImaxHr],grid[:ImaxHr] )
 
     return( K, Ic,Kc , f_X(cutHr),f_U(cutHr),f_K(cutHr) , IMaxS,IMinU,ImaxHr )
+#---------------------------------------------------------------------
+def PlotFlame(Grid,Yf,T,Tad,Q,MQ,xlim,name,titre) :
+	figF,axF=plt.subplots(figsize=(8,6))
+	axF.plot(Grid,Yf/Yf[0]           ,'b',label='YH2')
+	axF.plot(Grid,(T-T[0])/(Tad-T[0]),'r',label='T'  )
+	axF.plot(Grid,Q/MQ               ,'k',label='Q'  )
+	axF.set_xlabel('Distance [mm]',fontsize=20)
+	axF.set_title(titre,fontsize=20)
+	axF.legend(fontsize=12)
+	axF.set_xlim([0,xlim])
+	figF.tight_layout()
+	figF.savefig(name)
+	plt.close(figF)
+#---------------------------------------------------------------------
+def PlotSpecies(Spe,Grid,f,Spe_names,xlim,Col,name) :
+    figS,axS=plt.subplots(figsize=(8,6))
+    for k,s in enumerate(Spe) :
+        Ik=Spe_names.index(s) ; Yk=f.Y[Ik,:]
+        axS.plot(Grid,Yk ,Col[k],label=s)
+    axS.set_xlabel('Distance [mm]',fontsize=20)
+    axS.set_title('Species Mass fraction',fontsize=20)
+    axS.legend(fontsize=12)
+    axS.set_xlim([0,xlim])
+    figS.tight_layout()
+    figS.savefig(name)
+    plt.close(figS)
 #---------------------------------------------------------------------

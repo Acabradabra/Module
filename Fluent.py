@@ -62,6 +62,9 @@ def PlotVar(ax,c,var,X,M,T,TXT,BD,PARAM) :
     elif var=='co' :
         I=T.index('co')
         Var=M[:,I]*1e2
+    elif var=='no' :
+        I=T.index('mf-pollut-pollutant-0')
+        Var=M[:,I]*1e6
     else :
         I=T.index(var)
         Var=M[:,I]
@@ -177,10 +180,22 @@ def Space(T,M) :
     if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Id.append(Iz) ; Ms.append(Mz) #; print('=> Mz : {:.1f} , {:.1f}'.format(min(Mz),max(Mz)))
     return(Id,Ms)
 #===================================================================
+def SpaceD(D) :
+    Ms=[]
+    if 'x-coordinate' in D.keys() : Mx=D['x-coordinate'] ; Ms.append(Mx)
+    if 'y-coordinate' in D.keys() : My=D['y-coordinate'] ; Ms.append(My)
+    if 'z-coordinate' in D.keys() : Mz=D['z-coordinate'] ; Ms.append(Mz)
+    return(Ms)
+#===================================================================
 def ReadSurf(f) : 
-    # print('=> Reading : '+f)
     op=open(f) ; L0=op.readline() ; op.closed
     return( [ s.strip() for s in L0[:-1].split(',')] , loadtxt(f,skiprows=1,delimiter=',') )
+#===================================================================
+def ReadSurfD(f) :
+    op=open(f) ; L0=op.readline() ; op.closed
+    T=[ s.strip() for s in L0[:-1].split(',')]
+    M=loadtxt(f,skiprows=1,delimiter=',')
+    return({ s:M[:,n] for n,s in enumerate(T) })
 #===================================================================
 # def FindData(v,T) : return([ i for i in range(len(T)) if v in T[i] ][0])
 def FindData(v,T) : return( T.index(v) )
@@ -226,6 +241,8 @@ def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
     elif var=='co' :
         Ivr=T.index('co') ; Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
     # else : Ivr=FindData(var ,T) ; Mv=M[:,Ivr]
+    elif var=='no' :
+        Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
     else : Ivr=T.index(var) ; Mv=M[:,Ivr]
     # Ivr=T.index(var)
     Ibd=FindData('boundary-cell-dist',T)
