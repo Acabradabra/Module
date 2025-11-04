@@ -13,6 +13,7 @@ import math
 import operator
 from functools import reduce
 # import cantera as ct
+import matplotlib.pyplot as plt
 import matplotlib as mtp
 
 #---------------------------------------------------------------------
@@ -268,7 +269,9 @@ def NewPos(Ax,ax,ay,dx,dy) :
 	Ax.set_position(Pos)
 #---------------------------------------------------------------------
 def SaveFig(fig,name) :
+	fig.tight_layout()
 	fig.savefig(name)
+	plt.close(fig)
 	Section('Fig saved : '+name,0,2,'g')
 #---------------------------------------------------------------------
 ######################################             Math              #
@@ -696,6 +699,15 @@ def Sed(L,S,F):
 		cmd+=" -e '{0:.0f}c {1}'".format(L[i],S[i])
 	cmd+=' {0} > TEMP ; mv TEMP {0}'.format(F)
 	os.system(cmd)
+#---------------------------------------------------------------------
+def ReadDict(name,sep,skip) :
+	with open(name) as file :
+		for n in range(skip) : file.readline()
+		L=file.readline()
+	file.closed
+	T=[ s.strip() for s in L[:-1].split(sep) if s ]
+	M=np.loadtxt(name,delimiter=sep,skiprows=skip+1)
+	return({ s:M[:,i] for i,s in enumerate(T) })
 #---------------------------------------------------------------------
 def ReadFile(name,sep,Ntitle) :
 	L,M,T=True,[],[]

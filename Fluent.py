@@ -20,6 +20,8 @@ Mol_m={
     'H2':2
     }
 
+Spe_Laera_l0=['O2','CH4','CO2','H2']
+Spe_Laera_l1=['O2','H2O','CH4','CO','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','CO2']
 Spe_Laera=['O2','H2O','CH4','CO','CO2','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','N2']
 Spe_H2Air=['H2','O2','H2O','N2']
 Spe_UCSD=['H2','H','O2','OH','O','H2O','HO2','H2O2','N2']
@@ -207,9 +209,12 @@ def CleanTri(tri,tol) :
     S2=cross(xy[:,1,:]-xy[:,0,:],xy[:,2,:]-xy[:,0,:])
     return(S2<tol)
 #===================================================================
-def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
+def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
     cmap=mtp.colormaps[cmap0]
     tol=1e-5
+    # cmesh=1e3
+    # xlim=[ x*cmesh for x in xlim ]
+    # ylim=[ y*cmesh for y in ylim ]
     vmax,vmin=0,0
     if len(BD)>0 : [vmin,vmax]=BD
     (T,M)=ReadSurf(surf)
@@ -268,10 +273,10 @@ def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
     if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
     MS0=CleanTri(tri,1e-10) ; Mask0[MS0]=True
     tri.set_mask( Mask0 )
-    print('=> ',lab,'   :   ',min(Mv),max(Mv)) ; f=0
-    if len(OPT)==0 : Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],True,name,fs)
+    print( '=> ',lab,'   :   %.3e  ,  %.3e'%(min(Mv),max(Mv)) ) ; f=0
+    if len(OPT)==0 : Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,TICKS,cmap,[],True,name,fs)
     else :
-        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,cmap,[],False,name,fs)
+        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,TICKS,cmap,[],False,name,fs)
         if  'LINES' in OPT : #====================> Lines
             print('=> Lines')
             iopt=OPT.index('LINES')
@@ -313,7 +318,12 @@ def Visu(surf,var,lab,xlim,ylim,ticks,BD,fs,cmap0,name,OPT) :
             for path in f.get_paths() :
                  points=path.vertices
                  print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
-        fig.savefig(name)
+        if 'INTERP' in OPT : #====================> Interpolation
+            print('=> Interpolation')
+            f=mtp.tri.LinearTriInterpolator( tri,Mv )
+            util.SaveFig(fig,name)
+            return(f)
+        util.SaveFig(fig,name)
     # return(f)
 #===================================================================
 def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
@@ -340,13 +350,11 @@ def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     else          : cb=fig.colorbar(f,cax=cax)
     cb.set_label(lab,fontsize=20)
 #===================================================================
-def Field2(tri,F,lab,Log,xlim,ylim,vmax,ticks,cmap,CMask,SAVE,name,fs) :
+def Field2(tri,F,lab,Log,xlim,ylim,vmax,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
     fig,ax=plt.subplots(figsize=fs)
     # fig.suptitle(lab,fontsize=20)
     ax.set_title(lab,fontsize=20)
     ax.set_aspect('equal')
-    ax.set_xticks([])
-    ax.set_yticks([])
     if len(xlim) : ax.set_xlim(xlim[0],xlim[1])
     if len(ylim) : ax.set_ylim(ylim[0],ylim[1])
     # if vmax>0 : F[F>vmax]=vmax
@@ -364,10 +372,20 @@ def Field2(tri,F,lab,Log,xlim,ylim,vmax,ticks,cmap,CMask,SAVE,name,fs) :
     divider = make_axes_locatable(ax) ; cax = divider.append_axes("right", size="2%", pad=0.25)
     if len(ticks) : cb=fig.colorbar(f,cax=cax,ticks=ticks,extend='both') #,extendrect=False)
     else          : cb=fig.colorbar(f,cax=cax            ,extend='both') #,extendrect=False)
+    #=====> Ticks
+    if cmesh==0 :
+        ax.set_xticks([])
+        ax.set_yticks([])
+    else :
+        xticks=ax.get_xticks()
+        yticks=ax.get_yticks()
+        ax.set_xticks( xticks )
+        ax.set_yticks( yticks )
+        ax.set_xticklabels([ '%.0f'%(x*cmesh) for x in xticks ])
+        ax.set_yticklabels([ '%.0f'%(y*cmesh) for y in yticks ])
     # cb.set_label(lab,fontsize=20)
     if SAVE :
-        fig.savefig(name) #,dpi=1e3)
-        plt.close(fig)
+        util.SaveFig(fig,name)
         print('=> {:.3e}  {:.3e}   ,   {} : Saved'.format(min(F),max(F),lab))
     else : return(fig,ax,cb)
 #===================================================================
@@ -472,6 +490,30 @@ def Report_read(i_sim,o_sim) :
     D_ou=loadtxt(o_sim,skiprows=3,delimiter=' ') #; M_ou=D_ou[:,1] ; M_re=M_in+M_ou ; print('=> Final mflow : ', mean(M_re[-100]) )
     return(D_in,D_ou)
 #===================================================================
+def Probe_read(fprobe) :
+    op=open(fprobe)
+    for n in range(2) : L0=op.readline()
+    L0=op.readline()
+    op.closed
+    T=[ s.strip()[1:-1] for s in L0[1:-1].split(' ')]
+    M=loadtxt(fprobe,skiprows=3,delimiter=' ')
+    return({ s:M[:,n] for n,s in enumerate(T) })
+#===================================================================
+def Probe_plot(fprobe,fplot) :
+    D=Probe_read(fprobe)
+    It=D['Iteration']
+    Var_plot=[ v for v in D.keys() if v!='Iteration' ]
+    Nvar=len(Var_plot)
+    fig,ax=plt.subplots(figsize=(15,3*Nvar),nrows=Nvar)
+    if Nvar==1 : ax=[ax]
+    for nv in range(Nvar) :
+        v=Var_plot[nv]
+        ax[nv].set_title(v)
+        ax[nv].plot( It , D[v] , 'k' )
+        tick_k(ax[nv])
+    fig.tight_layout()
+    fig.savefig(fplot)
+#===================================================================
 def tick_k(ax) :
     # print(ax.get_xticks())
     xticks=ax.get_xticks()
@@ -482,7 +524,7 @@ def tick_k(ax) :
 #===================================================================
 def Report(It,Min,Mou,Mth,I0,I1,Nav,coef) :
     Sel=(I0<=It)*(It<=I1) #; print(I0,I1)
-    Nin,Nou=len(Min),len(Mou) ; Nmin=min(Nin,Nou)
+    Nin,Nou=len(Min),len(Mou) ; Nmin=min([Nin,Nou])
     Min=Min[:Nmin]*coef
     Mou=Mou[:Nmin]*coef
     It =It [:Nmin]
@@ -494,23 +536,19 @@ def Report(It,Min,Mou,Mth,I0,I1,Nav,coef) :
     Bl=mean(B0)
     Vm=sqrt(mean((M0-Ml)**2))/Ml
     Vb=sqrt(mean((B0-Bl)**2))/Ml
-    Er=abs(Ml-Mth)/Mth #; print('Ml : {:.2f}  ,  Mth : {:.2f}  ,  Er : {:.1e}'.format(Ml,Mth,Er*100))
-    if abs(Bl)>1e3*Ml : tbal=''
-    else              : tbal='Balance : {:.1e} [g/s]  ,  RMS : {:.1e} [%]'.format(Bl,Vb*1e2)
+    if abs(Bl)>1e3*abs(Ml) : tbal='Mean Balance > 1e3 Mean Min'
+    else                   : tbal='Balance : {:.1e} [g/s]  ,  RMS : {:.1e} [%]'.format(Bl,Vb*1e2)
     print( 'Min_av : {:.2f}   ,  Min_av_min : {:.2f}   ,  Min_av_max : {:.2f}'.format(Ml,min(M0),max(M0)) )
     print( 'Bal_av : {:.1e}   ,  Bal_av_min : {:.1e}   ,  Bal_av_max : {:.1e}'.format(Bl,min(B0),max(B0)) )
     print( 'RMS m,b : {:.3f}  {:.3f}'.format(Vm*1e2,Vb*1e2) )
     fig_b,ax_b=plt.subplots(figsize=( 15,5),ncols=2)
-    #ax_b[0].set_title('Mf : {:.2f}  ,  Mf_th : {:.2f} [g/s]'.format(Ml,Mth*1e3) )
-    fig_b.suptitle('Teoretical Mf : {:.2f} [g/s]  ,  Error : {:.2f} [%]'.format( Mth,Er*1e2 ),y=0.995)
+    if Mth>0 : 
+        Er=abs(Ml-Mth)/Mth
+        fig_b.suptitle('Teoretical Mf : {:.2f} [g/s]  ,  Error : {:.2f} [%]'.format( Mth,Er*1e2 ),y=0.995)
     ax_b[0].set_title('Mf : {:.2f} [g/s]  ,  RMS : {:.2e} [%]'.format(Ml,Vm*1e2) )
     ax_b[1].set_title(tbal)
-    # ax_b[1].set_title('Balance : {:.2f} [g/s]  ,  RMS : {:.2f} [%]'.format(Bl,Vb*1e2) )
     ax_b[0].ticklabel_format( axis='y' , scilimits=(-2,2) ) ; 
     ax_b[1].ticklabel_format( axis='y' , scilimits=(-2,2) ) ; 
-    # ax_b[1].set_ylim((-20,20))
-    # ax_b[0].set_yscale('log')
-    # ax_b[1].set_yscale('log')
     ax_b[0].plot( It[Sel],Min[Sel],'k' )
     ax_b[1].plot( It[Sel],Bal[Sel],'k' )
     util.NewPos(ax_b[0],1,1,0,-0.04)
@@ -678,3 +716,4 @@ def Yc(Y,M) : Spe=['CH4','CO2','CO']       ; Id=[1,1,1]   ; return( M['C']*sum([
 def Yo(Y,M) : Spe=['O2' ,'CO2','CO','H2O'] ; Id=[2,2,1,1] ; return( M['O']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
 def Yh(Y,M) : Spe=['CH4','H2O','H2']       ; Id=[4,2,2]   ; return( M['H']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
 #===================================================================
+def Umoy(x,V) : return(2*trapezoid(V*x,x)/(x[-1]-x[0])**2)
