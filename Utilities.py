@@ -742,7 +742,8 @@ def MKDIR(dire):
 	if not os.path.exists(dire) :
 		print('\n=====> Make dir : ',dire)
 		# os.system('mkdir '+dire)
-		os.mkdir(dire)
+		# os.mkdir(dire)
+		os.makedirs(dire,exist_ok=True)
 #---------------------------------------------------------------------
 def WriteMat(M,Title,name,n1,n2,sep,form) :
 	with open(name,'w') as file :

@@ -20,7 +20,7 @@ Mol_m={
     'H2':2
     }
 
-Spe_Laera_l0=['O2','CH4','CO2','H2']
+Spe_Laera_l0=['CH4','H2','O2','CO2']
 Spe_Laera_l1=['O2','H2O','CH4','CO','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','CO2']
 Spe_Laera=['O2','H2O','CH4','CO','CO2','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','N2']
 Spe_H2Air=['H2','O2','H2O','N2']
@@ -244,7 +244,9 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
         Yh_g=Yh({'H2':Y_h2,'H2O':Y_h2o,'CH4':Y_ch4},Mol_m)
         Mv=(Yh_g-Yh_o)/(Yh_f-Yh_o)
     elif var=='co' :
-        Ivr=T.index('co') ; Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
+        Ivr=T.index('co') 
+        if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
+        else           : Mv=M[:,Ivr]
     # else : Ivr=FindData(var ,T) ; Mv=M[:,Ivr]
     elif var=='no' :
         Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
@@ -317,7 +319,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
             f=ax.tricontour( tri,Mv,levels=Viso,colors='w',linewidths=1 )
             for path in f.get_paths() :
                  points=path.vertices
-                 print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
+                 if len(points)>0 : print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
         if 'INTERP' in OPT : #====================> Interpolation
             print('=> Interpolation')
             f=mtp.tri.LinearTriInterpolator( tri,Mv )
@@ -495,7 +497,7 @@ def Probe_read(fprobe) :
     for n in range(2) : L0=op.readline()
     L0=op.readline()
     op.closed
-    T=[ s.strip()[1:-1] for s in L0[1:-1].split(' ')]
+    T=[ s.strip()[1:-1] for s in L0[1:-2].split(' ')]
     M=loadtxt(fprobe,skiprows=3,delimiter=' ')
     return({ s:M[:,n] for n,s in enumerate(T) })
 #===================================================================
@@ -712,8 +714,8 @@ def LastMass(frep,Nav) :
 	D_in=loadtxt(frep,skiprows=3,delimiter=' ') ; Min=D_in[:,1]
 	return(mean(Min[:-Nav]))
 #===================================================================
-def Yc(Y,M) : Spe=['CH4','CO2','CO']       ; Id=[1,1,1]   ; return( M['C']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
-def Yo(Y,M) : Spe=['O2' ,'CO2','CO','H2O'] ; Id=[2,2,1,1] ; return( M['O']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
-def Yh(Y,M) : Spe=['CH4','H2O','H2']       ; Id=[4,2,2]   ; return( M['H']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) ],axis=0) )
+def Yc(Y,M) : Spe=['CH4','CO2','CO']       ; Id=[1,1,1]   ; return( M['C']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in Y.keys ],axis=0) )
+def Yo(Y,M) : Spe=['O2' ,'CO2','CO','H2O'] ; Id=[2,2,1,1] ; return( M['O']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in Y.keys ],axis=0) )
+def Yh(Y,M) : Spe=['CH4','H2O','H2']       ; Id=[4,2,2]   ; return( M['H']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in Y.keys ],axis=0) )
 #===================================================================
 def Umoy(x,V) : return(2*trapezoid(V*x,x)/(x[-1]-x[0])**2)

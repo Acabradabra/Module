@@ -623,9 +623,9 @@ def StrainRates(f):
 #---------------------------------------------------------------------
 def PlotFlame(Grid,Yf,T,Tad,Q,MQ,xlim,name,titre) :
 	figF,axF=plt.subplots(figsize=(8,6))
-	axF.plot(Grid,Yf/Yf[0]           ,'b',label='YH2')
-	axF.plot(Grid,(T-T[0])/(Tad-T[0]),'r',label='T'  )
-	axF.plot(Grid,Q/MQ               ,'k',label='Q'  )
+	axF.plot(Grid,Yf/Yf[0]           ,'b',label='Yf')
+	axF.plot(Grid,(T-T[0])/(Tad-T[0]),'r',label='T' )
+	axF.plot(Grid,Q/MQ               ,'k',label='Q' )
 	axF.plot([xlim[0],xlim[1]],[1,1],':k')
 	axF.set_xlabel('Distance [mm]',fontsize=20)
 	axF.set_title(titre,fontsize=20)
