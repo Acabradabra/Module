@@ -239,6 +239,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
         Y_h2o=M[:,T.index('h2o')]
         if 'ch4' in T : Y_ch4=M[:,T.index('ch4')]
         else          : Y_ch4=0*Y_h2
+        # print('=> MIXH : ',Mol_m['H2'],Y_f['H2'],Y_o['H2'])
         Yh_f=Yh(Y_f,Mol_m)
         Yh_o=Yh(Y_o,Mol_m)
         Yh_g=Yh({'H2':Y_h2,'H2O':Y_h2o,'CH4':Y_ch4},Mol_m)
@@ -250,6 +251,10 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
     # else : Ivr=FindData(var ,T) ; Mv=M[:,Ivr]
     elif var=='no' :
         Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
+    elif var=='tt' :
+        Mk=M[:,FindData('turb-kinetic-energy',T)]
+        Me=M[:,FindData('turb-diss-rate',T)]
+        Mv=clip(Mk/Me,ticks[0],ticks[-1])
     else : Ivr=T.index(var) ; Mv=M[:,Ivr]
     # Ivr=T.index(var)
     Ibd=FindData('boundary-cell-dist',T)
@@ -258,7 +263,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
     if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; My0,My1=min(My),max(My) ; print( '=> My : {:.1f} , {:.1f}'.format(My0,My1) )
     if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Mz0,Mz1=min(Mz),max(Mz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Mz0,Mz1) )
     Selzx=[]
-    XY='xy' in surf or True
+    XY= ('xy' in surf) or (not 'z-coordinate' in T) 
     ZX='zx' in surf                                
     YZ= 'yz' in surf or 'tga' in surf
     IN='in1' in surf or 'in2' in surf
@@ -285,6 +290,24 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
             Vx=OPT[iopt+1]
             if len(ylim)==0 : ylim=[My0,My1]
             for x in Vx : ax.plot( 2*[x],ylim,':w' )
+        if 'MIX' in OPT : #====================> Quiver
+            print('=> mixture fraction contours')
+            iopt=OPT.index('MIX')
+            [Mol_m,BC_f,BC_o]=OPT[iopt+1]
+            DY=Dic_Y(M,T)
+            Zc=ZC(DY,BC_f,BC_o,Mol_m)
+            Zh=ZC(DY,BC_f,BC_o,Mol_m)
+        if 'RECIRC' in OPT : #====================> Quiver
+            print('=> Recirculation')
+            iopt=OPT.index('RECIRC')
+            [col]=OPT[iopt+1]
+            if 'radial-velocity' in T :
+                IUr=FindData('axial-velocity',T)
+                Va=M[:,IUr]
+            else :
+                IUx=FindData('x-velocity',T)
+                Va=M[:,IUx]
+            f=ax.tricontour( tri,Va,levels=[-1e-3],colors=col,linewidths=1 )
         if 'QUIV' in OPT : #====================> Quiver
             print('=> Quiver')
             iopt=OPT.index('QUIV')
@@ -317,7 +340,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
             iopt=OPT.index('ISO')
             Viso=OPT[iopt+1]
             f=ax.tricontour( tri,Mv,levels=Viso,colors='w',linewidths=1 )
-            for path in f.get_paths() :
+            for path in f.collections[0].get_paths() :
                  points=path.vertices
                  if len(points)>0 : print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
         if 'INTERP' in OPT : #====================> Interpolation
@@ -714,8 +737,36 @@ def LastMass(frep,Nav) :
 	D_in=loadtxt(frep,skiprows=3,delimiter=' ') ; Min=D_in[:,1]
 	return(mean(Min[:-Nav]))
 #===================================================================
-def Yc(Y,M) : Spe=['CH4','CO2','CO']       ; Id=[1,1,1]   ; return( M['C']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in Y.keys ],axis=0) )
-def Yo(Y,M) : Spe=['O2' ,'CO2','CO','H2O'] ; Id=[2,2,1,1] ; return( M['O']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in Y.keys ],axis=0) )
-def Yh(Y,M) : Spe=['CH4','H2O','H2']       ; Id=[4,2,2]   ; return( M['H']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in Y.keys ],axis=0) )
+def ZH(DY,BC_f,BC_o,Mol_m) :
+    Yh_f=Yh(BC_f,Mol_m)
+    Yh_o=Yh(BC_o,Mol_m)
+    Yh_g=Yh(DY,Mol_m)
+    return((Yh_g-Yh_o)/(Yh_f-Yh_o))
 #===================================================================
-def Umoy(x,V) : return(2*trapezoid(V*x,x)/(x[-1]-x[0])**2)
+def ZC(DY,BC_f,BC_o,Mol_m) :
+    Yc_f=Yc(BC_f,Mol_m)
+    Yc_o=Yc(BC_o,Mol_m)
+    Yc_g=Yc(DY,Mol_m)
+    return((Yc_g-Yc_o)/(Yc_f-Yc_o))
+#===================================================================
+def Dic_Y(M,T) :
+    DY={}
+    if 'ch4' in T : DY['CH4']=M[:,T.index('ch4')]
+    if 'co2' in T : DY['CO2']=M[:,T.index('co2')]
+    if 'co'  in T : DY['CO' ]=M[:,T.index('co' )]
+    if 'h2'  in T : DY['H2' ]=M[:,T.index('h2' )]
+    if 'o2'  in T : DY['O2' ]=M[:,T.index('o2' )]
+    if 'h2o' in T : DY['H2O']=M[:,T.index('h2o')]
+    return(DY)
+#===================================================================
+def Yc(Y,M) : Spe=['CH4','CO2','CO']       ; Id=[1,1,1]   ; return( M['C']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in list(Y.keys()) ],axis=0) )
+def Yo(Y,M) : Spe=['O2' ,'CO2','CO','H2O'] ; Id=[2,2,1,1] ; return( M['O']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in list(Y.keys()) ],axis=0) )
+def Yh(Y,M) : Spe=['CH4','H2O','H2']       ; Id=[4,2,2]   ; return( M['H']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in list(Y.keys()) ],axis=0) )
+#===================================================================
+def Umoy(x,V) : return(2*trapz(V*x,x)/(x[-1]-x[0])**2)
+#===================================================================
+def ConvBC_XY(BC) :
+    Spe_bc=[ sp for sp in BC.keys() if sp in Mol_m.keys() ]
+    Mm=sum([ BC[sp]*Mol_m[sp] for sp in Spe_bc ])
+    for sp in Spe_bc :
+        BC[sp]=BC[sp]*Mol_m[sp]/Mm
