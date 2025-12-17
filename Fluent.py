@@ -5,6 +5,7 @@ from numpy import *
 import h5py as h5
 import Utilities as util
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.colors as colors
 
 (plt,mtp)=util.Plot0()
 Mol_m={
@@ -23,6 +24,8 @@ Mol_m={
 Spe_Laera_l0=['CH4','H2','O2','CO2']
 Spe_Laera_l1=['O2','H2O','CH4','CO','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','CO2']
 Spe_Laera=['O2','H2O','CH4','CO','CO2','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','N2']
+# Spe_Walter=['O2','H2O','CH4','CO','H2','C2H6','C3H8','CO2']
+Spe_Walter=['CH4','C2H6','C3H8','H2','O2','CO2','CO','H2O','N2']
 Spe_H2Air=['H2','O2','H2O','N2']
 Spe_UCSD=['H2','H','O2','OH','O','H2O','HO2','H2O2','N2']
 
@@ -212,6 +215,8 @@ def CleanTri(tri,tol) :
 def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
     cmap=mtp.colormaps[cmap0]
     tol=1e-5
+    if var in ['tt'] : Log=True
+    else             : Log=False
     # cmesh=1e3
     # xlim=[ x*cmesh for x in xlim ]
     # ylim=[ y*cmesh for y in ylim ]
@@ -232,7 +237,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
         Yc_o=Yc(Y_o,Mol_m)
         Yc_g=Yc({'CH4':M[:,Ic1],'CO2':M[:,Ic2],'CO':M[:,Ic3]},Mol_m)
         Mv=(Yc_g-Yc_o)/(Yc_f-Yc_o)
-    elif var=='mixH' :
+    elif var=='mixH' or ('Zst' in OPT and var in ['temperature','tt'] and not 'fmean' in T ) :
         iopt=OPT.index('MIXH')
         [Mol_m,Y_f,Y_o]=OPT[iopt+1]
         Y_h2 =M[:,T.index('h2')]
@@ -243,7 +248,14 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
         Yh_f=Yh(Y_f,Mol_m)
         Yh_o=Yh(Y_o,Mol_m)
         Yh_g=Yh({'H2':Y_h2,'H2O':Y_h2o,'CH4':Y_ch4},Mol_m)
-        Mv=(Yh_g-Yh_o)/(Yh_f-Yh_o)
+        Yh0=(Yh_g-Yh_o)/(Yh_f-Yh_o)
+        if var=='mixH' : Mv=Yh0
+        elif var=='tt' :
+            Mk=M[:,FindData('turb-kinetic-energy',T)]
+            Me=M[:,FindData('turb-diss-rate',T)]
+            # Mv=clip(Mk/Me,ticks[0],ticks[-1])
+            Mv=clip(Me/Mk,ticks[0],ticks[-1])
+        else : Ivr=T.index(var) ; Mv=M[:,Ivr]
     elif var=='co' :
         Ivr=T.index('co') 
         if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
@@ -254,7 +266,8 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
     elif var=='tt' :
         Mk=M[:,FindData('turb-kinetic-energy',T)]
         Me=M[:,FindData('turb-diss-rate',T)]
-        Mv=clip(Mk/Me,ticks[0],ticks[-1])
+        # Mv=clip(Mk/Me,ticks[0],ticks[-1])
+        Mv=clip(Me/Mk,ticks[0],ticks[-1])
     else : Ivr=T.index(var) ; Mv=M[:,Ivr]
     # Ivr=T.index(var)
     Ibd=FindData('boundary-cell-dist',T)
@@ -281,9 +294,9 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
     MS0=CleanTri(tri,1e-10) ; Mask0[MS0]=True
     tri.set_mask( Mask0 )
     print( '=> ',lab,'   :   %.3e  ,  %.3e'%(min(Mv),max(Mv)) ) ; f=0
-    if len(OPT)==0 : Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,TICKS,cmap,[],True,name,fs)
+    if len(OPT)==0 : Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,TICKS,cmap,[],True,name,fs)
     else :
-        (fig,ax,cb)=Field2(tri,Mv,lab,False,xlim,ylim,vmax,ticks,TICKS,cmap,[],False,name,fs)
+        (fig,ax,cb)=Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,TICKS,cmap,[],False,name,fs)
         if  'LINES' in OPT : #====================> Lines
             print('=> Lines')
             iopt=OPT.index('LINES')
@@ -296,7 +309,9 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
             [Mol_m,BC_f,BC_o]=OPT[iopt+1]
             DY=Dic_Y(M,T)
             Zc=ZC(DY,BC_f,BC_o,Mol_m)
-            Zh=ZC(DY,BC_f,BC_o,Mol_m)
+            Zh=ZH(DY,BC_f,BC_o,Mol_m)
+            Zh_st=Zst(BC_f,BC_o)
+            f=ax.tricontour( tri,Zh,levels=[Zh_st],colors='b',linewidths=1 )
         if 'RECIRC' in OPT : #====================> Quiver
             print('=> Recirculation')
             iopt=OPT.index('RECIRC')
@@ -335,14 +350,26 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
             f=mtp.tri.LinearTriInterpolator( tri,Mv ) ; Prof=f(Vi,Vj)
             fplot(Vi,Vj,Prof,name)
             ax.plot([P0[0],P1[0]],[P0[1],P1[1]],':w')
+        if 'Zst' in OPT : #====================> Stoechiometric line 
+            print('=> Stoechiometric line')
+            iopt=OPT.index('Zst')
+            [Zst,cz]=OPT[iopt+1]
+            if 'fmean' in T : Yh0=M[:,T.index('fmean')]
+            f=ax.tricontour( tri,Yh0,levels=[Zst],colors=cz,linewidths=1 )
+        if 'Tiso' in OPT : #====================> Isolines
+            print('=> temperature isolines')
+            iopt=OPT.index('Tiso')
+            Viso=OPT[iopt+1]
+            Itr=T.index('temperature')
+            f=ax.tricontour( tri,M[:,Itr],levels=Viso,colors='r',linewidths=1 )
         if 'ISO' in OPT : #====================> Isolines
             print('=> isolines')
             iopt=OPT.index('ISO')
             Viso=OPT[iopt+1]
             f=ax.tricontour( tri,Mv,levels=Viso,colors='w',linewidths=1 )
-            for path in f.collections[0].get_paths() :
-                 points=path.vertices
-                 if len(points)>0 : print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
+            # for path in f.collections[0].get_paths() :
+                #  points=path.vertices
+                #  if len(points)>0 : print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
         if 'INTERP' in OPT : #====================> Interpolation
             print('=> Interpolation')
             f=mtp.tri.LinearTriInterpolator( tri,Mv )
@@ -388,7 +415,8 @@ def Field2(tri,F,lab,Log,xlim,ylim,vmax,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
     # vmax=11
     #=====> Plot
     # ax.triplot(tri,color='red',linewidth=0.1) ; F[:]=0
-    if Log : f=ax.tricontourf( tri,F,levels=[ 10**n for n in linspace(0,7,101) ] , cmap=cmap ,vmax=vmax , norm = LogNorm() )
+
+    if Log : f=ax.tricontourf( tri,F,levels=[ 10**n for n in linspace(0,7,101) ] , cmap=cmap ,vmax=vmax , norm = colors.LogNorm(vmin=F.min(), vmax=F.max()) )
     else   : f=ax.tricontourf( tri,F,levels=int(100) , cmap=cmap ,vmax=vmax )
     #=====> Mask
     # if len(CMask) : ax.fill(CMask[0],CMask[1],facecolor='white',edgecolor='black')
@@ -737,6 +765,18 @@ def LastMass(frep,Nav) :
 	D_in=loadtxt(frep,skiprows=3,delimiter=' ') ; Min=D_in[:,1]
 	return(mean(Min[:-Nav]))
 #===================================================================
+def Zst(BC_f,BC_o) :
+	alp=BC_f['CH4']/BC_f['H2']
+	XH2_s =1/(1.5+3*alp)
+	XCH4_s=       alp *XH2_s
+	XO2_s =(0.5+2*alp)*XH2_s
+	Mav_s=Mol_m['H2']*XH2_s+Mol_m['O2']*XO2_s+Mol_m['CH4']*XCH4_s
+	YH_s=Mol_m['H']*(4*XCH4_s+2*XH2_s)/Mav_s
+	YH_o=Yh(BC_o,Mol_m)
+	YH_f=Yh(BC_f,Mol_m)
+	# Zst=(YH_s-YH_o)/(YH_f-YH_o) ; print('=> Stoichiometric mixture fraction Zst = %.3f'%(Zst))
+	return((YH_s-YH_o)/(YH_f-YH_o))
+#===================================================================
 def ZH(DY,BC_f,BC_o,Mol_m) :
     Yh_f=Yh(BC_f,Mol_m)
     Yh_o=Yh(BC_o,Mol_m)
@@ -770,3 +810,4 @@ def ConvBC_XY(BC) :
     Mm=sum([ BC[sp]*Mol_m[sp] for sp in Spe_bc ])
     for sp in Spe_bc :
         BC[sp]=BC[sp]*Mol_m[sp]/Mm
+    return(BC)
