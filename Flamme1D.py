@@ -66,11 +66,11 @@ def Adia1D(phi,X0,Ti,Pi,grid0,Name,INox,Tol,Tstep,Rafcrit,gas,view):
 	f.max_grid_points=5000
 	f.set_time_step(Tstep,[2,5,10,20,50,80,130,200,500,1000])
 	
-	if   Rafcrit==4 : f.set_refine_criteria(ratio=5.0, slope=0.005, curve=0.001, prune=0.00075)
-	elif Rafcrit==3 : f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005,  prune=0      )
-	elif Rafcrit==2 : f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01,   prune=0.0075 )
-	elif Rafcrit==1 : f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05,   prune=0.025  )
-	elif Rafcrit==0 : f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1,    prune=0.075  )
+	if   Rafcrit==4 : f.set_refine_criteria(ratio=5.0, slope=0.005,curve=0.001, prune=0.00075)
+	elif Rafcrit==3 : f.set_refine_criteria(ratio=2.0, slope=0.05, curve=0.005, prune=0      )
+	elif Rafcrit==2 : f.set_refine_criteria(ratio=5.0, slope=0.05, curve=0.01 , prune=0.0075 )
+	elif Rafcrit==1 : f.set_refine_criteria(ratio=5.0, slope=0.1,  curve=0.05 , prune=0.025  )
+	elif Rafcrit==0 : f.set_refine_criteria(ratio=5.0, slope=0.5,  curve=0.1  , prune=0.075  )
 
 	f.transport_model='mixture-averaged'
 	# f.soret_enabled=True

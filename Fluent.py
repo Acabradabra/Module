@@ -26,8 +26,11 @@ Spe_Laera_l1=['O2','H2O','CH4','CO','H2','H','O','OH','HO2','H2O2','CH3','CH2O',
 Spe_Laera=['O2','H2O','CH4','CO','CO2','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','N2']
 # Spe_Walter=['O2','H2O','CH4','CO','H2','C2H6','C3H8','CO2']
 Spe_Walter=['CH4','C2H6','C3H8','H2','O2','CO2','CO','H2O','N2']
+Spe_Laera_wt=['CH4','C2H6','H2','O2','CO2','H2O','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','CO']
 Spe_H2Air=['H2','O2','H2O','N2']
 Spe_UCSD=['H2','H','O2','OH','O','H2O','HO2','H2O2','N2']
+
+Cmu=0.09
 
 #===================================================================
 def Tri(X,Y) :
@@ -212,7 +215,21 @@ def CleanTri(tri,tol) :
     S2=cross(xy[:,1,:]-xy[:,0,:],xy[:,2,:]-xy[:,0,:])
     return(S2<tol)
 #===================================================================
-def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
+def Get_tmix(M,T,OPT) :
+    Mk=M[:,FindData('turb-kinetic-energy',T)]
+    Me=M[:,FindData('turb-diss-rate',T)]
+    iopt=OPT.index('tt')
+    if 'dyn' in OPT[iopt+1] :
+        ml=M[:,FindData('viscosity-lam',T)]
+        mt=M[:,FindData('viscosity-turb',T)]
+        Ret=mt/ml
+        Df=OPT[iopt+1][1]
+        alp=3*(Df-3)/(1+Df)
+        Cmix=(Ret/Cmu)**(0.5*(alp-1))
+    else : Cmix=OPT[iopt+1][0]
+    return( Cmix*(Mk/Me) )
+#===================================================================
+def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     cmap=mtp.colormaps[cmap0]
     tol=1e-5
     if var in ['tt'] : Log=True
@@ -249,27 +266,24 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
         Yh_o=Yh(Y_o,Mol_m)
         Yh_g=Yh({'H2':Y_h2,'H2O':Y_h2o,'CH4':Y_ch4},Mol_m)
         Yh0=(Yh_g-Yh_o)/(Yh_f-Yh_o)
-        if var=='mixH' : Mv=Yh0
-        elif var=='tt' :
-            Mk=M[:,FindData('turb-kinetic-energy',T)]
-            Me=M[:,FindData('turb-diss-rate',T)]
-            # Mv=clip(Mk/Me,ticks[0],ticks[-1])
-            Mv=clip(Me/Mk,ticks[0],ticks[-1])
+        if   var=='mixH' : Mv=Yh0
+        elif var=='tt'   : Mv=clip(1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
         else : Ivr=T.index(var) ; Mv=M[:,Ivr]
     elif var=='co' :
         Ivr=T.index('co') 
         if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
         else           : Mv=M[:,Ivr]
-    # else : Ivr=FindData(var ,T) ; Mv=M[:,Ivr]
-    elif var=='no' :
-        Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
-    elif var=='tt' :
-        Mk=M[:,FindData('turb-kinetic-energy',T)]
-        Me=M[:,FindData('turb-diss-rate',T)]
-        # Mv=clip(Mk/Me,ticks[0],ticks[-1])
-        Mv=clip(Me/Mk,ticks[0],ticks[-1])
+    elif var=='no' : Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
+    elif var=='tt' : Mv=clip( 1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
+    elif var=='tc' : 
+        Mrho  =M[:,T.index('density')]
+        Mr_ch4=M[:,T.index('net-rate-ch4')] ; My_ch4=M[:,T.index('ch4')] ; t_ch4=Mrho*My_ch4/Mr_ch4
+        Mr_co2=M[:,T.index('net-rate-co2')] ; My_co2=M[:,T.index('co2')] ; t_co2=Mrho*My_co2/Mr_co2
+        Mr_h2o=M[:,T.index('net-rate-h2o')] ; My_h2o=M[:,T.index('h2o')] ; t_h2o=Mrho*My_h2o/Mr_h2o
+        Mr_h2 =M[:,T.index('net-rate-h2' )] ; My_h2 =M[:,T.index('h2' )] ; t_h2 =Mrho*My_h2 /Mr_h2 
+        Mr_o2 =M[:,T.index('net-rate-o2' )] ; My_o2 =M[:,T.index('o2' )] ; t_o2 =Mrho*My_o2 /Mr_o2 
+        Mv=clip( max(t_ch4,t_co2,t_h2o,t_h2,t_o2) ,ticks[0],ticks[-1])
     else : Ivr=T.index(var) ; Mv=M[:,Ivr]
-    # Ivr=T.index(var)
     Ibd=FindData('boundary-cell-dist',T)
     Ivl=FindData('velocity-magnitude',T)
     if 'x-coordinate' in T : Ix=FindData('x-coordinate',T) ; Mx=M[:,Ix] ; Mx0,Mx1=min(Mx),max(Mx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Mx0,Mx1) )
@@ -294,9 +308,9 @@ def Visu(surf,var,lab,xlim,ylim,ticks,TICKS,BD,fs,cmap0,name,OPT) :
     MS0=CleanTri(tri,1e-10) ; Mask0[MS0]=True
     tri.set_mask( Mask0 )
     print( '=> ',lab,'   :   %.3e  ,  %.3e'%(min(Mv),max(Mv)) ) ; f=0
-    if len(OPT)==0 : Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,TICKS,cmap,[],True,name,fs)
+    if len(OPT)==0 : Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,cmesh,cmap,[],True,name,fs)
     else :
-        (fig,ax,cb)=Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,TICKS,cmap,[],False,name,fs)
+        (fig,ax,cb)=Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,cmesh,cmap,[],False,name,fs)
         if  'LINES' in OPT : #====================> Lines
             print('=> Lines')
             iopt=OPT.index('LINES')
@@ -538,10 +552,19 @@ def Residual_full(ax,fdat,I0,nc,Nm,It) :
         ax.plot( i[sel],d[sel] , label=v )
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 #===================================================================
-def Report_read(i_sim,o_sim) :
+def Mass_read(i_sim,o_sim) :
     D_in=loadtxt(i_sim,skiprows=3,delimiter=' ') #; M_in=D_in[:,1]+D_in[:,2] ; It=D_in[:,0] ; print('=> report : ',M_in.shape) ; print(It[0],It[-1])
     D_ou=loadtxt(o_sim,skiprows=3,delimiter=' ') #; M_ou=D_ou[:,1] ; M_re=M_in+M_ou ; print('=> Final mflow : ', mean(M_re[-100]) )
     return(D_in,D_ou)
+#===================================================================
+def Report_read(freport) :
+    op=open(freport)
+    for n in range(2) : L0=op.readline()
+    L0=op.readline()
+    op.closed
+    T=[ s.strip()[1:-1] for s in L0[1:-2].split(' ')]
+    M=loadtxt(freport,skiprows=3,delimiter=' ')
+    return({ s:M[:,n] for n,s in enumerate(T) })
 #===================================================================
 def Probe_read(fprobe) :
     op=open(fprobe)
