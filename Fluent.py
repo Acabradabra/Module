@@ -290,7 +290,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; My0,My1=min(My),max(My) ; print( '=> My : {:.1f} , {:.1f}'.format(My0,My1) )
     if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Mz0,Mz1=min(Mz),max(Mz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Mz0,Mz1) )
     Selzx=[]
-    XY= ('xy' in surf) or (not 'z-coordinate' in T) 
+    XY= ('xy' in surf) or (not 'z-coordinate' in T) or ('PRECIZE' in surf)
     ZX='zx' in surf                                
     YZ= 'yz' in surf or 'tga' in surf
     IN='in1' in surf or 'in2' in surf
@@ -405,7 +405,8 @@ def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     # else : vmin,vmax=lim[0],lim[1] ; ticks=linspace(vmin,vmax,5) ; F[F<vmin]=vmin*(1+1e-12) ; F[F>vmax]=vmax*(1-1e-12)
     else : vmin,vmax=lim[0],lim[1] ; F[F<vmin]=vmin*(1+1e-12) ; F[F>vmax]=vmax*(1-1e-12)
     #=====> Plot
-    if Log : f=ax.tricontourf( tri,F,levels=[ 10**n for n in linspace(0,7,101) ] , cmap=cmap ,vmax=vmax , norm = LogNorm() )
+    # if Log : f=ax.tricontourf( tri,F,levels=[ 10**n for n in linspace(0,7,101) ] , cmap=cmap ,vmax=vmax , norm = LogNorm() )
+    if Log : f=ax.tricontourf( tri,F,levels=int(1e2) , cmap=cmap ,vmax=vmax , norm = LogNorm() )
     else   : f=ax.tricontourf( tri,F,levels=int(1e2) , cmap=cmap ,vmax=vmax,vmin=vmin )
     # else   : f=ax.tricontourf( tri,F,levels=int(1e2) , cmap=cmap ,vmin=vmin,vmax=vmax )
     #=====> Mask
@@ -623,8 +624,8 @@ def Report(It,Min,Mou,Mth,I0,I1,Nav,coef) :
         fig_b.suptitle('Teoretical Mf : {:.2f} [g/s]  ,  Error : {:.2f} [%]'.format( Mth,Er*1e2 ),y=0.995)
     ax_b[0].set_title('Mf : {:.2f} [g/s]  ,  RMS : {:.2e} [%]'.format(Ml,Vm*1e2) )
     ax_b[1].set_title(tbal)
-    ax_b[0].ticklabel_format( axis='y' , scilimits=(-2,2) ) ; 
-    ax_b[1].ticklabel_format( axis='y' , scilimits=(-2,2) ) ; 
+    ax_b[0].ticklabel_format( axis='y' , scilimits=(-2,2) )
+    ax_b[1].ticklabel_format( axis='y' , scilimits=(-2,2) )
     ax_b[0].plot( It[Sel],Min[Sel],'k' )
     ax_b[1].plot( It[Sel],Bal[Sel],'k' )
     util.NewPos(ax_b[0],1,1,0,-0.04)
@@ -636,7 +637,7 @@ def Report(It,Min,Mou,Mth,I0,I1,Nav,coef) :
 def Temp_FC(dat,P_f,I_f,Nft,Nfi,Thermo) :
     [R,MH2,MO2,MN2,gam]=Thermo ; Patm=101325
     Lvar=list(dat['results']['1']['phase-1']['faces'].keys()) #; print(Lvar)
-    if   'SV_FMEAN' in Lvar :
+    if 'SV_FMEAN' in Lvar :
         Z=Data_CondFC( DataF(dat,'SV_FMEAN')   , P_f,I_f,Nft,Nfi ) #; print('Z',Z)
         P=Data_CondFC( DataF(dat,'SV_P')       , P_f,I_f,Nft,Nfi ) #; print('P',P)
         D=Data_CondFC( DataF(dat,'SV_DENSITY') , P_f,I_f,Nft,Nfi ) #; print('D',D)
