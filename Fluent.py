@@ -5,6 +5,7 @@ from numpy import *
 import h5py as h5
 import Utilities as util
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.patches import Circle
 import matplotlib.colors as colors
 
 (plt,mtp)=util.Plot0()
@@ -31,6 +32,14 @@ Spe_H2Air=['H2','O2','H2O','N2']
 Spe_UCSD=['H2','H','O2','OH','O','H2O','HO2','H2O2','N2']
 
 Cmu=0.09
+
+#======> GN
+Xf_GN={ 'CH4':0.925,'C2H6':0.041,'C3H8':0.009,'CO2':0.010,'N2':0.015 }
+#======> PCI
+PCI_H2  =120.1e6  # J/kg
+PCI_CH4 = 50.1e6  # J/Kg
+PCI_C2H6= 47.6e6  # J/Kg
+PCI_C3H8= 45.8e6  # J/Kg
 
 #===================================================================
 def Tri(X,Y) :
@@ -234,9 +243,6 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     tol=1e-5
     if var in ['tt'] : Log=True
     else             : Log=False
-    # cmesh=1e3
-    # xlim=[ x*cmesh for x in xlim ]
-    # ylim=[ y*cmesh for y in ylim ]
     vmax,vmin=0,0
     if len(BD)>0 : [vmin,vmax]=BD
     (T,M)=ReadSurf(surf)
@@ -269,10 +275,10 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         if   var=='mixH' : Mv=Yh0
         elif var=='tt'   : Mv=clip(1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
         else : Ivr=T.index(var) ; Mv=M[:,Ivr]
-    elif var=='co' :
-        Ivr=T.index('co') 
-        if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
-        else           : Mv=M[:,Ivr]
+    # elif var=='co' :
+    #     Ivr=T.index('co') 
+    #     if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
+    #     else           : Mv=M[:,Ivr]
     elif var=='no' : Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
     elif var=='tt' : Mv=clip( 1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
     elif var=='tc' : 
@@ -282,24 +288,27 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         Mr_h2o=M[:,T.index('net-rate-h2o')] ; My_h2o=M[:,T.index('h2o')] ; t_h2o=Mrho*My_h2o/Mr_h2o
         Mr_h2 =M[:,T.index('net-rate-h2' )] ; My_h2 =M[:,T.index('h2' )] ; t_h2 =Mrho*My_h2 /Mr_h2 
         Mr_o2 =M[:,T.index('net-rate-o2' )] ; My_o2 =M[:,T.index('o2' )] ; t_o2 =Mrho*My_o2 /Mr_o2 
-        Mv=clip( max(t_ch4,t_co2,t_h2o,t_h2,t_o2) ,ticks[0],ticks[-1])
+        Mv=clip( max(t_ch4,t_co2,t_h2o,t_h2,t_o2) , ticks[0],ticks[-1])
     else : Ivr=T.index(var) ; Mv=M[:,Ivr]
+    if 'GAIN' in OPT : Mv*=OPT[OPT.index('GAIN')+1]
     Ibd=FindData('boundary-cell-dist',T)
     Ivl=FindData('velocity-magnitude',T)
     if 'x-coordinate' in T : Ix=FindData('x-coordinate',T) ; Mx=M[:,Ix] ; Mx0,Mx1=min(Mx),max(Mx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Mx0,Mx1) )
     if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; My0,My1=min(My),max(My) ; print( '=> My : {:.1f} , {:.1f}'.format(My0,My1) )
     if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Mz0,Mz1=min(Mz),max(Mz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Mz0,Mz1) )
     Selzx=[]
-    XY= ('xy' in surf) or (not 'z-coordinate' in T) or ('PRECIZE' in surf)
-    ZX='zx' in surf                                
+    XY= ('xy' in surf) or (not 'z-coordinate' in T) or ('PRECIZE' in surf and not 'Data-OUT' in surf )
+    ZX= 'zx' in surf or ('PRECIZE' in surf and 'Data-OUT' in surf )
     YZ= 'yz' in surf or 'tga' in surf
     IN='in1' in surf or 'in2' in surf
     OU='ou'  in surf              
-    if   XY : tri=mtp.tri.Triangulation(Mx,My)
-    elif ZX : tri=mtp.tri.Triangulation(Mx,Mz) ; Selzx=any(Close(tri,Mx,tol)*Close(tri,Mz,tol),axis=1)
-    elif YZ : tri=mtp.tri.Triangulation(My,Mz)
-    elif IN : tri=mtp.tri.Triangulation(My,Mz)
-    elif OU : tri=mtp.tri.Triangulation(My,Mx)
+    if   XY : Mt1,Mt2=Mx,My ; tri=mtp.tri.Triangulation(Mx,My)
+    elif ZX : Mt1,Mt2=Mx,Mz ; tri=mtp.tri.Triangulation(Mx,Mz) ; Selzx=any(Close(tri,Mx,tol)*Close(tri,Mz,tol),axis=1)
+    elif YZ : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
+    elif IN : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
+    elif OU : Mt1,Mt2=My,Mx ; tri=mtp.tri.Triangulation(My,Mx)
+    if len(xlim)==0 : xlim=[min(Mt1),max(Mt1)] #; print( '=> xlim : {:.3f} , {:.3f}'.format(xlim[0],xlim[1]) )
+    if len(ylim)==0 : ylim=[min(Mt2),max(Mt2)] #; print( '=> ylim : {:.3f} , {:.3f}'.format(ylim[0],ylim[1]) )
     if max(M[:,Ibd])>2 : Mask0=sum(M[tri.triangles,Ibd]<1.01,axis=1)==3
     else               : Mask0=sum(M[tri.triangles,Ivl]==0  ,axis=1)==3
     if len(Selzx)>0 : Mask0[Selzx]=False
@@ -307,10 +316,22 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
     MS0=CleanTri(tri,1e-10) ; Mask0[MS0]=True
     tri.set_mask( Mask0 )
-    print( '=> ',lab,'   :   %.3e  ,  %.3e'%(min(Mv),max(Mv)) ) ; f=0
-    if len(OPT)==0 : Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,cmesh,cmap,[],True,name,fs)
+    print( '=> ',lab,'   :  min %.3e  ,  max %.3e  ,  moy %.3e'%(min(Mv),max(Mv),mean(Mv)) ) ; f=0
+    if len(OPT)==0 : Field2(tri,Mv,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,[],True,name,fs)
     else :
-        (fig,ax,cb)=Field2(tri,Mv,lab,Log,xlim,ylim,vmax,ticks,cmesh,cmap,[],False,name,fs)
+        (fig,ax,cb)=Field2(tri,Mv,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,[],False,name,fs)
+        if  'Probe' in OPT : #====================> Lines
+            print('=> Probes')
+            iopt=OPT.index('Probe')
+            Pos_p=OPT[iopt+1][0]
+            ray_p=OPT[iopt+1][1]
+            Txt_p=OPT[iopt+1][2]
+            for n,P in enumerate(Pos_p) : 
+                if n<3 : col='w'
+                else   : col='k'
+                circle = Circle(P, ray_p, facecolor='none',edgecolor=col, linewidth=1, alpha=1)
+                ax.add_patch(circle)
+                ax.text( P[0]+1.2*ray_p,P[1]+1.2*ray_p, Txt_p[n], color=col )
         if  'LINES' in OPT : #====================> Lines
             print('=> Lines')
             iopt=OPT.index('LINES')
@@ -417,41 +438,48 @@ def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     else          : cb=fig.colorbar(f,cax=cax)
     cb.set_label(lab,fontsize=20)
 #===================================================================
-def Field2(tri,F,lab,Log,xlim,ylim,vmax,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
-    fig,ax=plt.subplots(figsize=fs)
+def Field2(tri,F,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
+    fig,ax=plt.subplots(figsize=fs) #,layout='constrained')
     # fig.suptitle(lab,fontsize=20)
     ax.set_title(lab,fontsize=20)
     ax.set_aspect('equal')
-    if len(xlim) : ax.set_xlim(xlim[0],xlim[1])
-    if len(ylim) : ax.set_ylim(ylim[0],ylim[1])
     # if vmax>0 : F[F>vmax]=vmax
     # else      : vmax=max(F) #; print(vmax)
-    if not vmax : vmax=max(F)
-    # vmax=11
+
+    if len(BD)>0 : vmin,vmax=BD
+    else : vmin,vmax=min(F),max(F)
+    # if not vmax : vmax=max(F)
+    # if not vmin : vmin=min(F)
+    if Log : norm=colors.LogNorm(  vmin=vmin,vmax=vmax) ; lvl=[ 10**n for n in linspace(0,7,101) ]
+    else   : norm=colors.Normalize(vmin=vmin,vmax=vmax) ; lvl=int(1e2)
+    # else : print('=> vmax fixed to : ',vmax)
     #=====> Plot
     # ax.triplot(tri,color='red',linewidth=0.1) ; F[:]=0
 
-    if Log : f=ax.tricontourf( tri,F,levels=[ 10**n for n in linspace(0,7,101) ] , cmap=cmap ,vmax=vmax , norm = colors.LogNorm(vmin=F.min(), vmax=F.max()) )
-    else   : f=ax.tricontourf( tri,F,levels=int(100) , cmap=cmap ,vmax=vmax )
+    f=ax.tricontourf( tri,F,levels=lvl , cmap=cmap , norm=norm )
+    # if Log : f=ax.tricontourf( tri,F,levels=[ 10**n for n in linspace(0,7,101) ] , cmap=cmap , vmax=vmax , norm = colors.LogNorm(vmin=F.min(), vmax=F.max()) )
+    # else   : f=ax.tricontourf( tri,F,levels=int(100)                             , cmap=cmap , vmax=vmax ) #, extend='both' )
     #=====> Mask
     # if len(CMask) : ax.fill(CMask[0],CMask[1],facecolor='white',edgecolor='black')
     if len(CMask) : ax.fill(CMask[0],CMask[1],facecolor='white',edgecolor='none')
     #=====> Colorbar
     divider = make_axes_locatable(ax) ; cax = divider.append_axes("right", size="2%", pad=0.25)
-    if len(ticks) : cb=fig.colorbar(f,cax=cax,ticks=ticks,extend='both') #,extendrect=False)
-    else          : cb=fig.colorbar(f,cax=cax            ,extend='both') #,extendrect=False)
+    if len(ticks) : cb=fig.colorbar(mtp.cm.ScalarMappable(norm=norm,cmap=cmap) , cax=cax,ticks=ticks) #,extendrect=True,extendfrac='auto') #,extend='both',extendrect=True)
+    else          : cb=fig.colorbar(mtp.cm.ScalarMappable(norm=norm,cmap=cmap) , cax=cax            ) #,extendrect=True,extendfrac='auto') #,extend='both',extendrect=True)
     #=====> Ticks
     if cmesh==0 :
         ax.set_xticks([])
         ax.set_yticks([])
     else :
-        xticks=ax.get_xticks()
-        yticks=ax.get_yticks()
+        xticks=ax.get_xticks() #; print('get : ',xticks)
+        yticks=ax.get_yticks() #; print('get : ',yticks)
         ax.set_xticks( xticks )
         ax.set_yticks( yticks )
         ax.set_xticklabels([ '%.0f'%(x*cmesh) for x in xticks ])
         ax.set_yticklabels([ '%.0f'%(y*cmesh) for y in yticks ])
     # cb.set_label(lab,fontsize=20)
+    if len(xlim) : ax.set_xlim(xlim[0],xlim[1]) #; print('=> xlim : ',xlim)
+    if len(ylim) : ax.set_ylim(ylim[0],ylim[1]) #; print('=> ylim : ',ylim)
     if SAVE :
         util.SaveFig(fig,name)
         print('=> {:.3e}  {:.3e}   ,   {} : Saved'.format(min(F),max(F),lab))
@@ -557,6 +585,22 @@ def Mass_read(i_sim,o_sim) :
     D_in=loadtxt(i_sim,skiprows=3,delimiter=' ') #; M_in=D_in[:,1]+D_in[:,2] ; It=D_in[:,0] ; print('=> report : ',M_in.shape) ; print(It[0],It[-1])
     D_ou=loadtxt(o_sim,skiprows=3,delimiter=' ') #; M_ou=D_ou[:,1] ; M_re=M_in+M_ou ; print('=> Final mflow : ', mean(M_re[-100]) )
     return(D_in,D_ou)
+#===================================================================
+def Mf_sep(Dr,Keys) :
+    Keys_f=[ Dr[k] for k in Keys[1:] if 'inlet-fuel' in k ] ; N_f=len(Keys_f)
+    Keys_o=[ Dr[k] for k in Keys[1:] if 'inlet-oxid' in k ] ; N_o=len(Keys_o)
+    Keys_b=[ Dr[k] for k in Keys[1:] if 'outlet'     in k ] ; N_b=len(Keys_b)
+    Keys_s=[ Dr[k] for k in Keys[1:] if 'slope-zone' in k ] ; N_s=len(Keys_s)
+    Nk=len(Keys)-1
+    Ns=N_f+N_o+N_b+N_s
+    if Nk==Ns : print( util.Col('b',  '=> N keys : %i  ,  N select : %i'%(Nk,Ns)) )
+    else 	  : print( util.Col('r','\n=> N keys : %i  ,  N select : %i\n'%(Nk,Ns)) )
+    Mf_f=sum( array( Keys_f ) , axis=0 )
+    Mf_o=sum( array( Keys_o ) , axis=0 )
+    Mf_b=sum( array( Keys_b ) , axis=0 )
+    Mf_s=sum( array( Keys_s ) , axis=0 )
+    Mb=Mf_f+Mf_o+Mf_b+Mf_s
+    return(Mf_f,Mf_o,Mf_b,Mf_s,Mb)
 #===================================================================
 def Report_read(freport) :
     op=open(freport)
