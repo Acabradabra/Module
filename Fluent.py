@@ -9,18 +9,29 @@ from matplotlib.patches import Circle
 import matplotlib.colors as colors
 
 (plt,mtp)=util.Plot0()
+#=====> Molar masses (g/mol)
 Mol_m={
+    'H':1,
     'C':12,
     'O':16,
-    'H':1,
-    'CH4':16,
-    'CO2':44,
-    'CO':28,
-    'H2O':18,
+    'H2':2,
     'O2':32,
     'N2':28,
-    'H2':2
+    'CO':28,
+    'CH4':16,
+    'CO2':44,
+    'H2O':18,
+    'C2H6':30,
+    'C3H8':44
     }
+#======> Normal
+P0=101325 # Pa
+T0=273.15 # K
+#======> Ambiant
+Pamb=101325 # Pa
+Tamb=298.15 # K
+#======> Universal gas constant
+R=8.314 # J/mol K
 
 Spe_Laera_l0=['CH4','H2','O2','CO2']
 Spe_Laera_l1=['O2','H2O','CH4','CO','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','CO2']
@@ -35,12 +46,25 @@ Cmu=0.09
 
 #======> GN
 Xf_GN={ 'CH4':0.925,'C2H6':0.041,'C3H8':0.009,'CO2':0.010,'N2':0.015 }
+St_GN={ 'CH4':2    ,'C2H6':2.5  ,'C3H8':10 }
 #======> PCI
 PCI_H2  =120.1e6  # J/kg
 PCI_CH4 = 50.1e6  # J/Kg
 PCI_C2H6= 47.6e6  # J/Kg
 PCI_C3H8= 45.8e6  # J/Kg
+PCI={
+    'H2'  :PCI_H2 ,
+    'CH4' :PCI_CH4,
+    'C2H6':PCI_C2H6,
+    'C3H8':PCI_C3H8
+}
 
+#===================================================================
+def W_moy(X) : return(   sum([ X[k]*Mol_m[k] for k in X.keys() ]) )
+def W_mas(Y) : return( 1/sum([ Y[k]/Mol_m[k] for k in Y.keys() ]) )
+#===================================================================
+def Conv_XY(X) : W=W_moy(X) ; return({ k:(Mol_m[k]*X[k])/W        for k in X.keys() })
+def Conv_YX(Y) : W=W_mas(Y) ; return({ k:(       W*Y[k])/Mol_m[k] for k in Y.keys() })
 #===================================================================
 def Tri(X,Y) :
 # def Tri(X,Y,Geo) :
@@ -332,6 +356,12 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
                 circle = Circle(P, ray_p, facecolor='none',edgecolor=col, linewidth=1, alpha=1)
                 ax.add_patch(circle)
                 ax.text( P[0]+1.2*ray_p,P[1]+1.2*ray_p, Txt_p[n], color=col )
+        if  'Talus' in OPT : #====================> Talus
+            print('=> Talus')
+            iopt=OPT.index('Talus')
+            [Lx_t,Ly_t]=OPT[iopt+1]
+            # ax.plot( [Mx0,My0+Ly_t],[Mx0+Lx_t,My0],'r' )
+            ax.plot( [Mx0,Mx0+Lx_t],[My0+Ly_t,My0],'r' )
         if  'LINES' in OPT : #====================> Lines
             print('=> Lines')
             iopt=OPT.index('LINES')
