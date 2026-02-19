@@ -391,9 +391,12 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         if 'QUIV' in OPT : #====================> Quiver
             print('=> Quiver')
             iopt=OPT.index('QUIV')
-            [Ni,Nj,s]=OPT[iopt+1]
-            Vx0=linspace(xlim[0],xlim[1],Ni)
-            Vy0=linspace(ylim[0],ylim[1],Nj)
+            # [Ni,Nj,s]=OPT[iopt+1]
+            # Vx0=linspace(xlim[0],xlim[1],Ni)
+            # Vy0=linspace(ylim[0],ylim[1],Nj)
+            [di,dj,s]=OPT[iopt+1]
+            Vx0=arange(xlim[0],xlim[1]+0.1*di,di)
+            Vy0=arange(ylim[0],ylim[1]+0.1*dj,dj)
             IUx=FindData('x-velocity',T)
             IUy=FindData('y-velocity',T)
             IUz=FindData('z-velocity',T)
@@ -402,7 +405,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
             elif YZ : Xi,Xj=My,Mz ; Vi,Vj=M[:,IUy],M[:,IUz]
             f_Vi=mtp.tri.LinearTriInterpolator( tri,Vi )
             f_Vj=mtp.tri.LinearTriInterpolator( tri,Vj )
-            (MXi,MXj)=meshgrid(Vx0,Vy0)
+            (MXi,MXj)=meshgrid(Vx0,Vy0) #; print(Vx0.min(),Vx0.max(),Vy0.min(),Vy0.max())
             MVi=f_Vi(MXi,MXj)
             MVj=f_Vj(MXi,MXj)
             ax.quiver(MXi,MXj,MVi,MVj,color='w',scale=s)
@@ -632,12 +635,34 @@ def Mf_sep(Dr,Keys) :
     Mb=Mf_f+Mf_o+Mf_b+Mf_s
     return(Mf_f,Mf_o,Mf_b,Mf_s,Mb)
 #===================================================================
+# def Mf_detail(Dr,Keys) :
+#===================================================================
+def Mf_sep2(Dr,Keys) :
+    Keys_f=[ Dr[k] for k in Keys[1:] if 'f-f' in k ] ; N_f=len(Keys_f)
+    Keys_o=[ Dr[k] for k in Keys[1:] if '-o'  in k ] ; N_o=len(Keys_o)
+    # Keys_b=[ Dr[k] for k in Keys[1:] if 'out' in k ] ; N_b=len(Keys_b)
+    Keys_b=[ Dr[k] for k in Keys[1:] if 'zc' in k ] ; N_b=len(Keys_b)
+    Keys_l=[ Dr[k] for k in Keys[1:] if '-in' in k ] ; N_l=len(Keys_l)
+    # Keys_s=[ Dr[k] for k in Keys[1:] if 'slope-zone' in k ] ; N_s=len(Keys_s)
+    Nk=len(Keys)-1
+    Ns=N_f+N_o+N_b+N_l #+N_s
+    if Nk==Ns : print( util.Col('b',  '=> N keys : %i  ,  N select : %i'%(Nk,Ns)) )
+    else 	  : print( util.Col('r','\n=> N keys : %i  ,  N select : %i\n'%(Nk,Ns)) )
+    Mf_f=sum( array( Keys_f ) , axis=0 )
+    Mf_o=sum( array( Keys_o ) , axis=0 )
+    Mf_b=sum( array( Keys_b ) , axis=0 )
+    Mf_l=sum( array( Keys_l ) , axis=0 )
+    Mf_s=0*Mf_b #sum( array( Keys_s ) , axis=0 )
+    Mb=Mf_f+Mf_o+Mf_b+Mf_l+Mf_s
+    return(Mf_f,Mf_o,Mf_b,Mf_l,Mf_s,Mb)
+#===================================================================
 def Report_read(freport) :
     op=open(freport)
     for n in range(2) : L0=op.readline()
     L0=op.readline()
     op.closed
     T=[ s.strip()[1:-1] for s in L0[1:-2].split(' ')]
+    if '(' in T[1] : T=['Iteration']+[ k.split('(')[1][:-1] for k in T[1:] if '(' in k ]
     M=loadtxt(freport,skiprows=3,delimiter=' ')
     return({ s:M[:,n] for n,s in enumerate(T) })
 #===================================================================
