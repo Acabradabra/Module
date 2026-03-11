@@ -24,6 +24,8 @@ Mol_m={
     'C2H6':30,
     'C3H8':44
     }
+Wa  =0.21*Mol_m['O2']+0.79*Mol_m['N2']
+Mol_m['Air']=Wa
 #======> Normal
 P0=101325 # Pa
 T0=273.15 # K
@@ -32,6 +34,10 @@ Pamb=101325 # Pa
 Tamb=298.15 # K
 #======> Universal gas constant
 R=8.314 # J/mol K
+#======> Reference density
+Rho0_air=(Mol_m['Air']*P0*1e-3)/(R*T0) # Kg/m3
+Rho0_H2 =(Mol_m['H2'] *P0*1e-3)/(R*T0) # Kg/m3
+Rho0_CH4=(Mol_m['CH4']*P0*1e-3)/(R*T0) # Kg/m3
 
 Spe_Laera_l0=['CH4','H2','O2','CO2']
 Spe_Laera_l1=['O2','H2O','CH4','CO','H2','H','O','OH','HO2','H2O2','CH3','CH2O','CH3O','CH3OH','C2H2','C2H4','C2H6','CH2CO','CH','CH2','CH2(S)','HCO','CH2OH','C2H3','C2H5','HCCO','CH2CHO','CO2']
