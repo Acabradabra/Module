@@ -644,21 +644,22 @@ def Mf_sep(Dr,Keys) :
 # def Mf_detail(Dr,Keys) :
 #===================================================================
 def Mf_sep2(Dr,Keys) :
-    Keys_f=[ Dr[k] for k in Keys[1:] if 'f-f' in k ] ; N_f=len(Keys_f)
-    Keys_o=[ Dr[k] for k in Keys[1:] if k in ['f-ot','f-ob','f-os'] ] ; N_o=len(Keys_o)
-    # Keys_b=[ Dr[k] for k in Keys[1:] if 'out' in k ] ; N_b=len(Keys_b)
-    Keys_b=[ Dr[k] for k in Keys[1:] if 'zc' in k ] ; N_b=len(Keys_b)
-    Keys_l=[ Dr[k] for k in Keys[1:] if '-in' in k ] ; N_l=len(Keys_l)
+    Keys_f=[ Dr[k] for k in Keys[1:] if 'f-f'  in k ] ; N_f=len(Keys_f)
+    Keys_o=[ Dr[k] for k in Keys[1:] if k in ['f-ot','f-ob','f-os']  ] ; N_o=len(Keys_o)
+    # Keys_d=[ Dr[k] for k in Keys[1:] if k in ['jeu','jupe','dilute'] ] ; N_d=len(Keys_d)
+    Keys_b=[ Dr[k] for k in Keys[1:] if 'zc'   in k ] ; N_b=len(Keys_b)
+    Keys_l=[ Dr[k] for k in Keys[1:] if '-in'  in k ] ; N_l=len(Keys_l)
     Keys_s=[ Dr[k] for k in Keys[1:] if 'f-tc' in k ] ; N_s=len(Keys_s)
-    Nk=len(Keys)-1
     Ns=N_f+N_o+N_b+N_l+N_s
-    if Nk==Ns : print( util.Col('b',  '=> N keys : %i  ,  N select : %i'%(Nk,Ns)) )
-    else 	  : print( util.Col('r','\n=> N keys : %i  ,  N select : %i\n'%(Nk,Ns)) )
+    # Nk=len(Keys)-1
+    # if Nk==Ns : print( util.Col('b',  '=> N keys : %i  ,  N select : %i'%(Nk,Ns)) )
+    # else 	  : print( util.Col('r','\n=> N keys : %i  ,  N select : %i\n'%(Nk,Ns)) )
     Mf_f=sum( array( Keys_f ) , axis=0 )
     Mf_o=sum( array( Keys_o ) , axis=0 )
     Mf_b=sum( array( Keys_b ) , axis=0 )
     Mf_l=sum( array( Keys_l ) , axis=0 )
-    Mf_s=sum( array( Keys_s ) , axis=0 )
+    if Ns>0 : Mf_s=sum( array( Keys_s ) , axis=0 )
+    else    : Mf_s=0*Mf_f
     Mb=Mf_f+Mf_o+Mf_b+Mf_l+Mf_s
     return(Mf_f,Mf_o,Mf_b,Mf_l,Mf_s,Mb)
 #===================================================================
