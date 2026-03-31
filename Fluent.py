@@ -3,6 +3,8 @@
 
 from numpy import *
 import h5py as h5
+# from Precize.PostPro import Dr
+# from Sandia.Scaling import Ns
 import Utilities as util
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.patches import Circle
@@ -271,9 +273,9 @@ def Get_tmix(M,T,OPT) :
     else : Cmix=OPT[iopt+1][0]
     return( Cmix*(Mk/Me) )
 #===================================================================
-def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
+def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     cmap=mtp.colormaps[cmap0]
-    tol=1e-5
+    # tol=1e-5
     if var in ['tt'] : Log=True
     else             : Log=False
     vmax,vmin=0,0
@@ -330,16 +332,20 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; My0,My1=min(My),max(My) ; print( '=> My : {:.1f} , {:.1f}'.format(My0,My1) )
     if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Mz0,Mz1=min(Mz),max(Mz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Mz0,Mz1) )
     Selzx=[]
-    XY= ('xy' in surf) or (not 'z-coordinate' in T) or ('PRECIZE' in surf and not 'Data-OUT' in surf )
-    ZX= 'zx' in surf or ('PRECIZE' in surf and 'Data-OUT' in surf )
-    YZ= 'yz' in surf or 'tga' in surf
-    IN='in1' in surf or 'in2' in surf
-    OU='ou'  in surf              
-    if   XY : Mt1,Mt2=Mx,My ; tri=mtp.tri.Triangulation(Mx,My)
-    elif ZX : Mt1,Mt2=Mx,Mz ; tri=mtp.tri.Triangulation(Mx,Mz) ; Selzx=any(Close(tri,Mx,tol)*Close(tri,Mz,tol),axis=1)
-    elif YZ : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
-    elif IN : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
-    elif OU : Mt1,Mt2=My,Mx ; tri=mtp.tri.Triangulation(My,Mx)
+    # XY= ('xy' in surf) or (not 'z-coordinate' in T) or ('PRECIZE' in surf and not 'Data-OUT' in surf )
+    # ZX= 'zx' in surf or ('PRECIZE' in surf and 'Data-OUT' in surf )
+    # YZ= 'yz' in surf or 'tga' in surf
+    # IN='in1' in surf or 'in2' in surf
+    # OU='ou'  in surf              
+    # if   XY : Mt1,Mt2=Mx,My ; tri=mtp.tri.Triangulation(Mx,My)
+    # elif ZX : Mt1,Mt2=Mx,Mz ; tri=mtp.tri.Triangulation(Mx,Mz) ; Selzx=any(Close(tri,Mx,tol)*Close(tri,Mz,tol),axis=1)
+    # elif YZ : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
+    # elif IN : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
+    # elif OU : Mt1,Mt2=My,Mx ; tri=mtp.tri.Triangulation(My,Mx)
+    if   plan=='xy' : Mt1,Mt2=Mx,My 
+    elif plan=='xz' : Mt1,Mt2=Mx,Mz 
+    elif plan=='yz' : Mt1,Mt2=My,Mz 
+    tri=mtp.tri.Triangulation(Mt1,Mt2)
     if len(xlim)==0 : xlim=[min(Mt1),max(Mt1)] #; print( '=> xlim : {:.3f} , {:.3f}'.format(xlim[0],xlim[1]) )
     if len(ylim)==0 : ylim=[min(Mt2),max(Mt2)] #; print( '=> ylim : {:.3f} , {:.3f}'.format(ylim[0],ylim[1]) )
     if max(M[:,Ibd])>2 : Mask0=sum(M[tri.triangles,Ibd]<1.01,axis=1)==3
@@ -350,7 +356,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     MS0=CleanTri(tri,1e-10) ; Mask0[MS0]=True
     tri.set_mask( Mask0 )
     print( '=> ',lab,'   :  min %.3e  ,  max %.3e  ,  moy %.3e'%(min(Mv),max(Mv),mean(Mv)) ) ; f=0
-    if len(OPT)==0 : Field2(tri,Mv,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,[],True,name,fs)
+    if len(OPT)==0 : Field2(tri,Mv,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,[],True,name,fs) ; return(0)
     else :
         (fig,ax,cb)=Field2(tri,Mv,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,[],False,name,fs)
         if  'Probe' in OPT : #====================> Lines
@@ -409,9 +415,9 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
             IUx=FindData('x-velocity',T)
             IUy=FindData('y-velocity',T)
             IUz=FindData('z-velocity',T)
-            if   XY : Xi,Xj=Mx,My ; Vi,Vj=M[:,IUx],M[:,IUy]
-            elif ZX : Xi,Xj=Mx,Mz ; Vi,Vj=M[:,IUx],M[:,IUz]
-            elif YZ : Xi,Xj=My,Mz ; Vi,Vj=M[:,IUy],M[:,IUz]
+            if   plan=='xy' : Vi,Vj=M[:,IUx],M[:,IUy]
+            elif plan=='xz' : Vi,Vj=M[:,IUx],M[:,IUz]
+            elif plan=='yz' : Vi,Vj=M[:,IUy],M[:,IUz]
             f_Vi=mtp.tri.LinearTriInterpolator( tri,Vi )
             f_Vj=mtp.tri.LinearTriInterpolator( tri,Vj )
             (MXi,MXj)=meshgrid(Vx0,Vy0) #; print(Vx0.min(),Vx0.max(),Vy0.min(),Vy0.max())
@@ -453,7 +459,7 @@ def Visu(surf,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
             util.SaveFig(fig,name)
             return(f)
         util.SaveFig(fig,name)
-    # return(f)
+    return(0)
 #===================================================================
 def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     lab  =v[1]
@@ -665,6 +671,16 @@ def Mf_sep2(Dr,Keys) :
     else    : Mf_s=0*Mf_f
     Mb=Mf_f+Mf_o+Mf_b+Mf_l+Mf_s
     return(Mf_f,Mf_o,Mf_b,Mf_l,Mf_s,Mb)
+#===================================================================
+def Hl_sep(Dr,Ns) :
+    hl_top  =mean(Dr['f-top'  ][-Ns:])
+    hl_side =mean(Dr['f-side' ][-Ns:])
+    hl_front=mean(Dr['f-front'][-Ns:])
+    hl_back =mean(Dr['f-back' ][-Ns:])
+    hl_walls=hl_top+hl_side+hl_front+hl_back
+    hl_talus=mean(Dr['f-tc'][-Ns:])
+    hl_wb   =mean(Dr['f-wb'][-Ns:])
+    return(hl_walls,hl_talus,hl_wb)
 #===================================================================
 def Report_read(freport) :
     op=open(freport)

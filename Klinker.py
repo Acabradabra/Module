@@ -20,9 +20,11 @@ DH_rcac=90  # [kcal/kg(CAC)]   Enthalpy of reaction of CAC 1300 °C
 DH_fcac=145 # [kcal/kg(CAC)]   Enthalpy of fusion of CAC 1300 °C
 
 #=================================================================================
-def Compo(mdot_kk,y_caco3_feed,y_alooh_feed,y_h2o_caco3,y_h2o_alooh,y_co2_caco3) :
-	y_h2o_feed=(y_h2o_caco3*y_caco3_feed+y_h2o_alooh*y_alooh_feed) # mass fraction of humidity in raw material
-	y_co2_feed=(y_co2_caco3*y_caco3_feed                         ) # mass fraction of CO2      in raw material
+def Compo2( mdot_kk,Compo_feed,Compo_AlOOH,Compo_CACO3 ) : 
+	return( Compo( mdot_kk,Compo_feed['CaCO3'],Compo_feed['AlOOH'],Compo_CACO3['Vap'],Compo_AlOOH['Vap'],Compo_AlOOH['H2O'],Compo_CACO3['CO2'] ) )
+def Compo(mdot_kk,y_caco3_feed,y_alooh_feed,y_vap_caco3,y_vap_alooh,y_h2o_alooh,y_co2_caco3) :
+	y_h2o_feed=(y_vap_caco3*y_caco3_feed+(y_h2o_alooh+y_vap_alooh)*y_alooh_feed) # mass fraction of humidity in raw material
+	y_co2_feed=(y_co2_caco3*y_caco3_feed                                       ) # mass fraction of CO2      in raw material
 	y_kk=1-(y_h2o_feed+y_co2_feed) # mass fraction of klinker in raw material
 	mdot_rm=mdot_kk/y_kk           # mass flow rate of raw material
 
@@ -31,3 +33,7 @@ def Compo(mdot_kk,y_caco3_feed,y_alooh_feed,y_h2o_caco3,y_h2o_alooh,y_co2_caco3)
 
 	mdot_h2o*=(1e3/(3600*24)) # [kg/s]
 	mdot_co2*=(1e3/(3600*24)) # [kg/s]
+
+	return(mdot_h2o,mdot_co2,y_kk)
+#=================================================================================
+def Conv_thh(pow) : return(pow*4184e3/3600) # [th/h] -> [W] Thermal power
