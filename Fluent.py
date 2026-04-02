@@ -326,8 +326,9 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         Mv=clip( max(t_ch4,t_co2,t_h2o,t_h2,t_o2) , ticks[0],ticks[-1])
     else : Ivr=T.index(var) ; Mv=M[:,Ivr]
     if 'GAIN' in OPT : Mv*=OPT[OPT.index('GAIN')+1]
-    Ibd=FindData('boundary-cell-dist',T)
-    Ivl=FindData('velocity-magnitude',T)
+    DW,VL=False,False
+    if 'boundary-cell-dist' in T : Ibd=FindData('boundary-cell-dist',T) ; DW=True
+    if 'velocity-magnitude' in T : Ivl=FindData('velocity-magnitude',T) ; VL=True
     if 'x-coordinate' in T : Ix=FindData('x-coordinate',T) ; Mx=M[:,Ix] ; Mx0,Mx1=min(Mx),max(Mx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Mx0,Mx1) )
     if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; My0,My1=min(My),max(My) ; print( '=> My : {:.1f} , {:.1f}'.format(My0,My1) )
     if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Mz0,Mz1=min(Mz),max(Mz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Mz0,Mz1) )
@@ -344,12 +345,14 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     # elif OU : Mt1,Mt2=My,Mx ; tri=mtp.tri.Triangulation(My,Mx)
     if   plan=='xy' : Mt1,Mt2=Mx,My 
     elif plan=='xz' : Mt1,Mt2=Mx,Mz 
+    elif plan=='yx' : Mt1,Mt2=My,Mx 
     elif plan=='yz' : Mt1,Mt2=My,Mz 
     tri=mtp.tri.Triangulation(Mt1,Mt2)
     if len(xlim)==0 : xlim=[min(Mt1),max(Mt1)] #; print( '=> xlim : {:.3f} , {:.3f}'.format(xlim[0],xlim[1]) )
     if len(ylim)==0 : ylim=[min(Mt2),max(Mt2)] #; print( '=> ylim : {:.3f} , {:.3f}'.format(ylim[0],ylim[1]) )
-    if max(M[:,Ibd])>2 : Mask0=sum(M[tri.triangles,Ibd]<1.01,axis=1)==3
-    else               : Mask0=sum(M[tri.triangles,Ivl]==0  ,axis=1)==3
+    if   DW and max(M[:,Ibd])>2 : Mask0=sum(M[tri.triangles,Ibd]<1.01,axis=1)==3
+    elif VL                     : Mask0=sum(M[tri.triangles,Ivl]==0  ,axis=1)==3
+    else                        : Mask0=0*tri.triangles[:,0]+False
     if len(Selzx)>0 : Mask0[Selzx]=False
     if vmax!=0 : MaskV=all(Mv[tri.triangles]>vmax,axis=1) ; Mask0[MaskV]=True ; Mv[Mv>vmax]=vmax
     if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
@@ -487,7 +490,7 @@ def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     cb.set_label(lab,fontsize=20)
 #===================================================================
 def Field2(tri,F,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
-    fig,ax=plt.subplots(figsize=fs) #,layout='constrained')
+    fig,ax=plt.subplots(figsize=fs,dpi=500) #,layout='constrained')
     # fig.suptitle(lab,fontsize=20)
     ax.set_title(lab,fontsize=20)
     ax.set_aspect('equal')
@@ -669,10 +672,10 @@ def Mf_sep2(Dr,Keys) :
     Mf_l=sum( array( Keys_l ) , axis=0 )
     if Ns>0 : Mf_s=sum( array( Keys_s ) , axis=0 )
     else    : Mf_s=0*Mf_f
-    Mb=Mf_f+Mf_o+Mf_b+Mf_l+Mf_s
+    Mb=Mf_f+Mf_o+Mf_l+Mf_s+Mf_b
     return(Mf_f,Mf_o,Mf_b,Mf_l,Mf_s,Mb)
 #===================================================================
-def Hl_sep(Dr,Ns) :
+def Hl_sep(Dr,Ns,Pow,Verbose=0) :
     hl_top  =mean(Dr['f-top'  ][-Ns:])
     hl_side =mean(Dr['f-side' ][-Ns:])
     hl_front=mean(Dr['f-front'][-Ns:])
@@ -680,7 +683,20 @@ def Hl_sep(Dr,Ns) :
     hl_walls=hl_top+hl_side+hl_front+hl_back
     hl_talus=mean(Dr['f-tc'][-Ns:])
     hl_wb   =mean(Dr['f-wb'][-Ns:])
-    return(hl_walls,hl_talus,hl_wb)
+    hl_bath =mean(Dr['f-bath'][-Ns:])
+    hl_fum  =Pow*1e3+(hl_walls+hl_talus+hl_wb+hl_bath)
+    if Verbose>0 :
+        print(f'=> Total wall heat loss : {hl_walls*1e-3:.0f} [kW]  ,  {100*hl_walls/(Pow*1e3):.2f} % Pow')
+        print(f'=> Total talu heat loss : {hl_talus*1e-3:.0f} [kW]  ,  {100*hl_talus/(Pow*1e3):.2f} % Pow')
+        print(f'=> Water boxe heat loss : {hl_wb   *1e-3:.0f} [kW]  ,  {100*hl_wb   /(Pow*1e3):.2f} % Pow')
+        print(f'=> Bath       heat loss : {hl_bath *1e-3:.0f} [kW]  ,  {100*hl_bath /(Pow*1e3):.2f} % Pow')
+        print(f'=> Fumes      heat loss : {hl_fum  *1e-3:.0f} [kW]  ,  {100*hl_fum  /(Pow*1e3):.2f} % Pow') 
+    if Verbose>1 :
+        print(f'=> Top   heat loss : {hl_top  *1e-3:.0f} [kW]  ,  {100*hl_top  /(Pow*1e3):.2f} % Pow')
+        print(f'=> Side  heat loss : {hl_side *1e-3:.0f} [kW]  ,  {100*hl_side /(Pow*1e3):.2f} % Pow')
+        print(f'=> Front heat loss : {hl_front*1e-3:.0f} [kW]  ,  {100*hl_front/(Pow*1e3):.2f} % Pow')
+        print(f'=> Back  heat loss : {hl_back *1e-3:.0f} [kW]  ,  {100*hl_back /(Pow*1e3):.2f} % Pow')
+    return(hl_walls,hl_talus,hl_wb,hl_bath)
 #===================================================================
 def Report_read(freport) :
     op=open(freport)
