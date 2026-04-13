@@ -11,6 +11,8 @@ from matplotlib.patches import Circle
 import matplotlib.colors as colors
 
 (plt,mtp)=util.Plot0()
+#=====> Visualisation
+dpi=500
 #=====> Molar masses (g/mol)
 Mol_m={
     'H':1,
@@ -279,7 +281,7 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     if var in ['tt'] : Log=True
     else             : Log=False
     vmax,vmin=0,0
-    if len(BD)>0 : [vmin,vmax]=BD
+    if len(BD)>0 : [vmin,vmax]=BD #; BD=[]
     (T,M)=ReadSurf(surf)
     if var=='tourb' :
         Mk=M[:,FindData('turb-kinetic-energy',T)]
@@ -490,7 +492,7 @@ def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     cb.set_label(lab,fontsize=20)
 #===================================================================
 def Field2(tri,F,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
-    fig,ax=plt.subplots(figsize=fs,dpi=500) #,layout='constrained')
+    fig,ax=plt.subplots(figsize=fs,dpi=dpi) #,layout='constrained')
     # fig.suptitle(lab,fontsize=20)
     ax.set_title(lab,fontsize=20)
     ax.set_aspect('equal')
@@ -518,6 +520,8 @@ def Field2(tri,F,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
     if len(ticks) : cb=fig.colorbar(mtp.cm.ScalarMappable(norm=norm,cmap=cmap) , cax=cax,ticks=ticks) #,extendrect=True,extendfrac='auto') #,extend='both',extendrect=True)
     else          : cb=fig.colorbar(mtp.cm.ScalarMappable(norm=norm,cmap=cmap) , cax=cax            ) #,extendrect=True,extendfrac='auto') #,extend='both',extendrect=True)
     #=====> Ticks
+    if len(xlim) : ax.set_xlim(xlim[0],xlim[1]) #; print('=> xlim : ',xlim)
+    if len(ylim) : ax.set_ylim(ylim[0],ylim[1]) #; print('=> ylim : ',ylim)
     if cmesh==0 :
         ax.set_xticks([])
         ax.set_yticks([])
@@ -529,8 +533,6 @@ def Field2(tri,F,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
         ax.set_xticklabels([ '%.0f'%(x*cmesh) for x in xticks ])
         ax.set_yticklabels([ '%.0f'%(y*cmesh) for y in yticks ])
     # cb.set_label(lab,fontsize=20)
-    if len(xlim) : ax.set_xlim(xlim[0],xlim[1]) #; print('=> xlim : ',xlim)
-    if len(ylim) : ax.set_ylim(ylim[0],ylim[1]) #; print('=> ylim : ',ylim)
     if SAVE :
         util.SaveFig(fig,name)
         print('=> {:.3e}  {:.3e}   ,   {} : Saved'.format(min(F),max(F),lab))
