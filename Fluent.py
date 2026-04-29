@@ -312,10 +312,10 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         if   var=='mixH' : Mv=Yh0
         elif var=='tt'   : Mv=clip(1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
         else : Ivr=T.index(var) ; Mv=M[:,Ivr]
-    # elif var=='co' :
-    #     Ivr=T.index('co') 
-    #     if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
-    #     else           : Mv=M[:,Ivr]
+    elif var=='co' :
+        Ivr=T.index('co') 
+        if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
+        else           : Mv=M[:,Ivr]
     elif var=='no' : Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
     elif var=='tt' : Mv=clip( 1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
     elif var=='tc' : 

@@ -573,9 +573,12 @@ def Thick(X,T,N) :
 	# return( (max(T)-min(T))/DT[Imax],Imax )
 #---------------------------------------------------------------------
 def Thick2(X,T,N) :
-	(DT,Test,detD,CD,trace)=util.GradDifFin( [3,3] , 1 ,1e-8,X,N,T) ; DT=np.array(DT)
-	Imax=DT.argmax()
-	return( (max(T)-min(T))/DT[Imax],Imax,DT )
+	# (DT,Test,detD,CD,trace)=util.GradDifFin( [3,3] , 1 ,1e-8,X,N,T) ; DT=np.array(DT)
+	DT=(T[1:]-T[:-1])/(X[1:]-X[:-1])
+	MDT=max(DT) ; Imax=DT.argmax()
+	if MDT>0 : return( (max(T)-min(T))/DT[Imax],Imax,DT )
+	else     : return( 0 , 0 , DT)
+	
 #---------------------------------------------------------------------
 def Setting(Pi,schem,Rafcrit,Tol,Tstep,X0,Ti,L):
 	Set1='H2_Pi={0:1.3e}_{1}'.format(Pi,schem)
@@ -622,11 +625,23 @@ def StrainRates(f):
     return( K, Ic,Kc , f_X(cutHr),f_U(cutHr),f_K(cutHr) , IMaxS,IMinU,ImaxHr )
 #---------------------------------------------------------------------
 def PlotFlame(Grid,Yf,T,Tad,Q,MQ,xlim,name,titre) :
+	y=Yf/Yf[0]
+	t=(T-T[0])/(Tad-T[0])
+	q=(Q/MQ)
 	figF,axF=plt.subplots(figsize=(8,6))
-	axF.plot(Grid,Yf/Yf[0]           ,'b',label='Yf')
-	axF.plot(Grid,(T-T[0])/(Tad-T[0]),'r',label='T' )
-	axF.plot(Grid,Q/MQ               ,'k',label='Q' )
-	axF.plot([xlim[0],xlim[1]],[1,1],':k')
+	axF.plot([xlim[0],xlim[1]],[1,1],'--k')
+	GT=(t[1:]-t[:-1])/(Grid[1:]-Grid[:-1])
+	if max(GT)>0 :
+		IGT=GT.argmax()
+		x0=Grid[IGT]   -t[IGT] /GT[IGT]
+		x1=Grid[IGT]+(1-t[IGT])/GT[IGT]
+		axF.plot( 2*[x0],[0,1],':k')
+		axF.plot( 2*[x1],[0,1],':k')
+		axF.plot([x0,x1],[0,1],':k')
+		axF.plot(Grid[IGT],t[IGT],'.r')
+	axF.plot(Grid,y,'b',label='Yf')
+	axF.plot(Grid,t,'r',label='T' )
+	axF.plot(Grid,q,'k',label='Q' )
 	axF.set_xlabel('Distance [mm]',fontsize=20)
 	axF.set_title(titre,fontsize=20)
 	axF.legend(fontsize=12)
@@ -647,4 +662,6 @@ def PlotSpecies(Spe,Grid,f,Spe_names,xlim,Col,name) :
     figS.tight_layout()
     figS.savefig(name)
     plt.close(figS)
+#---------------------------------------------------------------------
+def SelHybRm(D,hyb,rm) : return( (D['hyb']==hyb) & (D['rm']==rm) )
 #---------------------------------------------------------------------
