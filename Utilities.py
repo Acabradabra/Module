@@ -219,7 +219,7 @@ def PlotIm(ax,pic,Ext) :
 	im=mtp.image.imread(pic)
 	(Ni,Nj,Nk)=im.shape
 	ax.imshow( im,extent=Ext )
-	ax.set_aspect( (Ext[1]/Ext[3])*(Ni/Nj) )
+	ax.set_aspect( ((Ext[1]-Ext[0])/(Ext[3]-Ext[2]))*(Ni/Nj) )
 #---------------------------------------------------------------------
 def Plot0():
 	import matplotlib.pyplot as plt

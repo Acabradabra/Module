@@ -3,6 +3,7 @@
 
 from numpy import *
 import h5py as h5
+import sys
 # from Precize.PostPro import Dr
 # from Sandia.Scaling import Ns
 import Utilities as util
@@ -24,11 +25,14 @@ Mol_m={
     'O2':32,
     'N2':28,
     'CO':28,
-    'CH4':16,
     'CO2':44,
     'H2O':18,
+    'CH4':16,
     'C2H6':30,
     'C3H8':44,
+    'C4H10':58,
+    'C5H12':72,
+    'C6H14':86,
     'Al2O3':100
     }
 Wa  =0.21*Mol_m['O2']+0.79*Mol_m['N2']
@@ -59,25 +63,22 @@ Cmu=0.09
 
 #======> GN
 Xf_GN={ 'CH4':0.925,'C2H6':0.041,'C3H8':0.009,'CO2':0.010,'N2':0.015 }
-St_GN={ 'CH4':2    ,'C2H6':2.5  ,'C3H8':10 }
+St_GN   ={ 'CH4':2     ,'C2H6':3.5   ,'C3H8':5     ,'C4H10':6.5   ,'C5H12':8    ,'C6H14':9.5  }
+# St_GN={ 'CH4':2    ,'C2H6':3.5  ,'C3H8':5  }
 #======> PCI
 PCI_H2  =120.1e6  # J/kg
 PCI_CH4 = 50.1e6  # J/Kg
-PCI_C2H6= 47.6e6  # J/Kg
-PCI_C3H8= 45.8e6  # J/Kg
+PCI_C2H6= 47.794e6  # J/Kg
+PCI_C3H8= 46.357e6 #45.8e6  # J/Kg
 PCI={
-    'H2'  :PCI_H2 ,
-    'CH4' :PCI_CH4,
-    'C2H6':PCI_C2H6,
-    'C3H8':PCI_C3H8
+    'H2'   :PCI_H2 ,
+    'CH4'  :PCI_CH4,
+    'C2H6' :PCI_C2H6,
+    'C3H8' :PCI_C3H8,
+    'C4H10':45.752,
+    'C5H12':45.357,
 }
 
-#===================================================================
-def W_moy(X) : return(   sum([ X[k]*Mol_m[k] for k in X.keys() ]) )
-def W_mas(Y) : return( 1/sum([ Y[k]/Mol_m[k] for k in Y.keys() ]) )
-#===================================================================
-def Conv_XY(X) : W=W_moy(X) ; return({ k:(Mol_m[k]*X[k])/W        for k in X.keys() })
-def Conv_YX(Y) : W=W_mas(Y) ; return({ k:(       W*Y[k])/Mol_m[k] for k in Y.keys() })
 #===================================================================
 def Tri(X,Y) :
 # def Tri(X,Y,Geo) :
@@ -249,7 +250,7 @@ def ReadSurfD(f) :
     op=open(f) ; L0=op.readline() ; op.closed
     T=[ s.strip() for s in L0[:-1].split(',')]
     M=loadtxt(f,skiprows=1,delimiter=',')
-    return({ s:M[:,n] for n,s in enumerate(T) })
+    return(T,{ s:M[:,n] for n,s in enumerate(T) })
 #===================================================================
 # def FindData(v,T) : return([ i for i in range(len(T)) if v in T[i] ][0])
 def FindData(v,T) : return( T.index(v) )
@@ -260,6 +261,12 @@ def CleanTri(tri,tol) :
     xy=dstack((tri.x[tri.triangles],tri.y[tri.triangles]))
     S2=cross(xy[:,1,:]-xy[:,0,:],xy[:,2,:]-xy[:,0,:])
     return(S2<tol)
+#===================================================================
+def Get_Xi(M,T,Cx) :
+    Mk=M[:,FindData('turb-kinetic-energy',T)]
+    Me=M[:,FindData('turb-diss-rate',T)]
+    ml=M[:,FindData('viscosity-lam',T)]
+    return( Cx*((ml*Me/Mk**2)**0.25) )
 #===================================================================
 def Get_tmix(M,T,OPT) :
     Mk=M[:,FindData('turb-kinetic-energy',T)]
@@ -275,6 +282,29 @@ def Get_tmix(M,T,OPT) :
     else : Cmix=OPT[iopt+1][0]
     return( Cmix*(Mk/Me) )
 #===================================================================
+def Vxyz(plan,M,T) :
+    if isinstance(plan,str) :
+        Vx,Vy,Vz=[],[],[]
+        if isinstance(M,dict) :
+            if 'x-coordinate' in T : Vx=M['x-coordinate']
+            if 'y-coordinate' in T : Vy=M['y-coordinate']
+            if 'z-coordinate' in T : Vz=M['z-coordinate']
+        else :
+            if 'x-coordinate' in T : Vx=M[:,FindData('x-coordinate',T)]
+            if 'y-coordinate' in T : Vy=M[:,FindData('y-coordinate',T)]
+            if 'z-coordinate' in T : Vz=M[:,FindData('z-coordinate',T)]
+        if len(Vx)>0 : Vx0,Vx1=min(Vx),max(Vx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Vx0,Vx1) )
+        if len(Vy)>0 : Vy0,Vy1=min(Vy),max(Vy) ; print( '=> My : {:.1f} , {:.1f}'.format(Vy0,Vy1) )
+        if len(Vz)>0 : Vz0,Vz1=min(Vz),max(Vz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Vz0,Vz1) )
+        if   plan[0]=='x' : V1=Vx
+        elif plan[0]=='y' : V1=Vy
+        elif plan[0]=='z' : V1=Vz
+        if   plan[1]=='x' : V2=Vx
+        elif plan[1]=='y' : V2=Vy
+        elif plan[1]=='z' : V2=Vz
+    else : (V1,V2)=plan
+    return(V1,V2)
+#===================================================================
 def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     cmap=mtp.colormaps[cmap0]
     # tol=1e-5
@@ -282,42 +312,47 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     else             : Log=False
     vmax,vmin=0,0
     if len(BD)>0 : [vmin,vmax]=BD #; BD=[]
-    (T,M)=ReadSurf(surf)
+    if   isinstance(surf,str)  : (T,M)=ReadSurf(surf)
+    # elif isinstance(surf,dict) : (T,M)=T=list(surf.keys()),surf
+    else                       : (T,M)=surf
     if var=='tourb' :
         Mk=M[:,FindData('turb-kinetic-energy',T)]
         Me=M[:,FindData('turb-diss-rate',T)]
         Mv=100*0.09*Mk**1.5/Me
+    elif var=='mix' :
+        iopt=OPT.index('MIX')
+        [BC_f,BC_o,Mol_m]=OPT[iopt+1]
+        Mv=Z_bg(BC_f,BC_o,Dic_Y(M,T))
     elif var=='mixC' :
-        iopt=OPT.index('MIXC')
-        [Mol_m,Y_f,Y_o]=OPT[iopt+1]
-        Ic1=T.index('ch4')
-        Ic2=T.index('co2')
-        Ic3=T.index('co')
+        iopt=OPT.index('MIX')
+        [BC_f,BC_o,Mol_m]=OPT[iopt+1]
+        Y_f=Conv_XY(BC_f) if BC_f['unit']=='X' else BC_f
+        Y_o=Conv_XY(BC_o) if BC_o['unit']=='X' else BC_o
         Yc_f=Yc(Y_f,Mol_m)
         Yc_o=Yc(Y_o,Mol_m)
-        Yc_g=Yc({'CH4':M[:,Ic1],'CO2':M[:,Ic2],'CO':M[:,Ic3]},Mol_m)
+        Yc_g=Yc(Dic_Y(M,T),Mol_m)
         Mv=(Yc_g-Yc_o)/(Yc_f-Yc_o)
     elif var=='mixH' or ('Zst' in OPT and var in ['temperature','tt'] and not 'fmean' in T ) :
-        iopt=OPT.index('MIXH')
-        [Mol_m,Y_f,Y_o]=OPT[iopt+1]
-        Y_h2 =M[:,T.index('h2')]
-        Y_h2o=M[:,T.index('h2o')]
-        if 'ch4' in T : Y_ch4=M[:,T.index('ch4')]
-        else          : Y_ch4=0*Y_h2
-        # print('=> MIXH : ',Mol_m['H2'],Y_f['H2'],Y_o['H2'])
+        iopt=OPT.index('MIX')
+        [BC_f,BC_o,Mol_m]=OPT[iopt+1]
+        Y_f=Conv_XY(BC_f) if BC_f['unit']=='X' else BC_f
+        Y_o=Conv_XY(BC_o) if BC_o['unit']=='X' else BC_o
         Yh_f=Yh(Y_f,Mol_m)
         Yh_o=Yh(Y_o,Mol_m)
-        Yh_g=Yh({'H2':Y_h2,'H2O':Y_h2o,'CH4':Y_ch4},Mol_m)
+        Yh_g=Yh(Dic_Y(M,T),Mol_m)
         Yh0=(Yh_g-Yh_o)/(Yh_f-Yh_o)
         if   var=='mixH' : Mv=Yh0
         elif var=='tt'   : Mv=clip(1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
         else : Ivr=T.index(var) ; Mv=M[:,Ivr]
-    elif var=='co' :
-        Ivr=T.index('co') 
-        if 'CO' in OPT : Mv=M[:,Ivr]*OPT[OPT.index('CO')+1]
-        else           : Mv=M[:,Ivr]
     elif var=='no' : Ivr=T.index('mf-pollut-pollutant-0') ; Mv=M[:,Ivr]*OPT[OPT.index('NO')+1]
     elif var=='tt' : Mv=clip( 1/Get_tmix(M,T,OPT) ,ticks[0],ticks[-1])
+    elif var=='Xi' : 
+        if 'Cx' in OPT : Cx=OPT[OPT.index('Cx')+1]
+        else           : Cx=1
+        print('=> Cx : ',Cx)
+        # Mv=clip( Get_Xi(M,T,Cx) ,ticks[0],ticks[-1])
+        Xi=clip( Get_Xi(M,T,Cx) ,ticks[0],ticks[-1]-1e-8)
+        Mv=clip( Xi**2/(1-Xi**3) , 0 , 2 )
     elif var=='tc' : 
         Mrho  =M[:,T.index('density')]
         Mr_ch4=M[:,T.index('net-rate-ch4')] ; My_ch4=M[:,T.index('ch4')] ; t_ch4=Mrho*My_ch4/Mr_ch4
@@ -326,35 +361,21 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         Mr_h2 =M[:,T.index('net-rate-h2' )] ; My_h2 =M[:,T.index('h2' )] ; t_h2 =Mrho*My_h2 /Mr_h2 
         Mr_o2 =M[:,T.index('net-rate-o2' )] ; My_o2 =M[:,T.index('o2' )] ; t_o2 =Mrho*My_o2 /Mr_o2 
         Mv=clip( max(t_ch4,t_co2,t_h2o,t_h2,t_o2) , ticks[0],ticks[-1])
-    else : Ivr=T.index(var) ; Mv=M[:,Ivr]
+    else : 
+        if isinstance(M,dict) : Mv=M[          var ]
+        else                  : Mv=M[:,T.index(var)]
     if 'GAIN' in OPT : Mv*=OPT[OPT.index('GAIN')+1]
     DW,VL=False,False
-    if 'boundary-cell-dist' in T : Ibd=FindData('boundary-cell-dist',T) ; DW=True
-    if 'velocity-magnitude' in T : Ivl=FindData('velocity-magnitude',T) ; VL=True
-    if 'x-coordinate' in T : Ix=FindData('x-coordinate',T) ; Mx=M[:,Ix] ; Mx0,Mx1=min(Mx),max(Mx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Mx0,Mx1) )
-    if 'y-coordinate' in T : Iy=FindData('y-coordinate',T) ; My=M[:,Iy] ; My0,My1=min(My),max(My) ; print( '=> My : {:.1f} , {:.1f}'.format(My0,My1) )
-    if 'z-coordinate' in T : Iz=FindData('z-coordinate',T) ; Mz=M[:,Iz] ; Mz0,Mz1=min(Mz),max(Mz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Mz0,Mz1) )
+    if 'boundary-cell-dist' in T : Vbd=M['boundary-cell-dist'] if isinstance(M,dict) else M[:,FindData('boundary-cell-dist',T)] ; DW=True
+    if 'velocity-magnitude' in T : Vvl=M['velocity-magnitude'] if isinstance(M,dict) else M[:,FindData('velocity-magnitude',T)] ; VL=True
     Selzx=[]
-    # XY= ('xy' in surf) or (not 'z-coordinate' in T) or ('PRECIZE' in surf and not 'Data-OUT' in surf )
-    # ZX= 'zx' in surf or ('PRECIZE' in surf and 'Data-OUT' in surf )
-    # YZ= 'yz' in surf or 'tga' in surf
-    # IN='in1' in surf or 'in2' in surf
-    # OU='ou'  in surf              
-    # if   XY : Mt1,Mt2=Mx,My ; tri=mtp.tri.Triangulation(Mx,My)
-    # elif ZX : Mt1,Mt2=Mx,Mz ; tri=mtp.tri.Triangulation(Mx,Mz) ; Selzx=any(Close(tri,Mx,tol)*Close(tri,Mz,tol),axis=1)
-    # elif YZ : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
-    # elif IN : Mt1,Mt2=My,Mz ; tri=mtp.tri.Triangulation(My,Mz)
-    # elif OU : Mt1,Mt2=My,Mx ; tri=mtp.tri.Triangulation(My,Mx)
-    if   plan=='xy' : Mt1,Mt2=Mx,My 
-    elif plan=='xz' : Mt1,Mt2=Mx,Mz 
-    elif plan=='yx' : Mt1,Mt2=My,Mx 
-    elif plan=='yz' : Mt1,Mt2=My,Mz 
+    (Mt1,Mt2)=Vxyz(plan,M,T)
     tri=mtp.tri.Triangulation(Mt1,Mt2)
     if len(xlim)==0 : xlim=[min(Mt1),max(Mt1)] #; print( '=> xlim : {:.3f} , {:.3f}'.format(xlim[0],xlim[1]) )
     if len(ylim)==0 : ylim=[min(Mt2),max(Mt2)] #; print( '=> ylim : {:.3f} , {:.3f}'.format(ylim[0],ylim[1]) )
-    if   DW and max(M[:,Ibd])>2 : Mask0=sum(M[tri.triangles,Ibd]<1.01,axis=1)==3
-    elif VL                     : Mask0=sum(M[tri.triangles,Ivl]==0  ,axis=1)==3
-    else                        : Mask0=0*tri.triangles[:,0]+False
+    if   DW and max(Vbd)>1.01 : Mask0=sum(Vbd[tri.triangles]<1.01,axis=1)==3 #; print('=> Mask Wall distance')
+    elif VL and max(Vvl)>0    : Mask0=sum(Vvl[tri.triangles]==0  ,axis=1)==3 #; print('=> Mask Velocity')
+    else                      : Mask0=0*tri.triangles[:,0]+False
     if len(Selzx)>0 : Mask0[Selzx]=False
     if vmax!=0 : MaskV=all(Mv[tri.triangles]>vmax,axis=1) ; Mask0[MaskV]=True ; Mv[Mv>vmax]=vmax
     if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
@@ -388,7 +409,7 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
             Vx=OPT[iopt+1]
             if len(ylim)==0 : ylim=[My0,My1]
             for x in Vx : ax.plot( 2*[x],ylim,':w' )
-        if 'MIX' in OPT : #====================> Quiver
+        if 'MIX-DUMMY' in OPT : #====================> Stoechiometric line
             print('=> mixture fraction contours')
             iopt=OPT.index('MIX')
             [Mol_m,BC_f,BC_o]=OPT[iopt+1]
@@ -411,18 +432,10 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         if 'QUIV' in OPT : #====================> Quiver
             print('=> Quiver')
             iopt=OPT.index('QUIV')
-            # [Ni,Nj,s]=OPT[iopt+1]
-            # Vx0=linspace(xlim[0],xlim[1],Ni)
-            # Vy0=linspace(ylim[0],ylim[1],Nj)
             [di,dj,s]=OPT[iopt+1]
             Vx0=arange(xlim[0],xlim[1]+0.1*di,di)
             Vy0=arange(ylim[0],ylim[1]+0.1*dj,dj)
-            IUx=FindData('x-velocity',T)
-            IUy=FindData('y-velocity',T)
-            IUz=FindData('z-velocity',T)
-            if   plan=='xy' : Vi,Vj=M[:,IUx],M[:,IUy]
-            elif plan=='xz' : Vi,Vj=M[:,IUx],M[:,IUz]
-            elif plan=='yz' : Vi,Vj=M[:,IUy],M[:,IUz]
+            (Vi,Vj)=Vxyz(plan,M,T)
             f_Vi=mtp.tri.LinearTriInterpolator( tri,Vi )
             f_Vj=mtp.tri.LinearTriInterpolator( tri,Vj )
             (MXi,MXj)=meshgrid(Vx0,Vy0) #; print(Vx0.min(),Vx0.max(),Vy0.min(),Vy0.max())
@@ -525,6 +538,7 @@ def Field2(tri,F,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
     if cmesh==0 :
         ax.set_xticks([])
         ax.set_yticks([])
+    elif cmesh<0 : pass
     else :
         xticks=ax.get_xticks() #; print('get : ',xticks)
         yticks=ax.get_yticks() #; print('get : ',yticks)
@@ -932,6 +946,57 @@ def LastMass(frep,Nav) :
 	D_in=loadtxt(frep,skiprows=3,delimiter=' ') ; Min=D_in[:,1]
 	return(mean(Min[:-Nav]))
 #===================================================================
+def W_moy(X) : return(   sum([ X[k]*Mol_m[k] for k in X.keys() if k in Mol_m.keys() ]) )
+def W_mas(Y) : return( 1/sum([ Y[k]/Mol_m[k] for k in Y.keys() if k in Mol_m.keys() ]) )
+#===================================================================
+def Conv_XY(X) : W=W_moy(X) ; return({ k:(Mol_m[k]*X[k])/W        for k in X.keys() if k in Mol_m.keys() })
+def Conv_YX(Y) : W=W_mas(Y) ; return({ k:(       W*Y[k])/Mol_m[k] for k in Y.keys() if k in Mol_m.keys() })
+#===================================================================
+def Y_fo(BC_f,BC_o,f) :
+    Y_f=Conv_XY(BC_f) if BC_f['unit']=='X' else BC_f
+    Y_o=Conv_XY(BC_o) if BC_o['unit']=='X' else BC_o
+    Y_f=f( Y_f , Mol_m )
+    Y_o=f( Y_o , Mol_m )
+    return( Y_f,Y_o )
+#===================================================================
+def YH_fo(BC_f,BC_o) :
+    Y_f=Conv_XY(BC_f) if BC_f['unit']=='X' else BC_f
+    Y_o=Conv_XY(BC_o) if BC_o['unit']=='X' else BC_o
+    Yh_f=Yh( Y_f , Mol_m )
+    Yh_o=Yh( Y_o , Mol_m )
+    return( Yh_f,Yh_o )
+#===================================================================
+def Z_bg(BC_f,BC_o,D_compo) :
+    Y_f=Conv_XY(BC_f) if BC_f['unit']=='X' else BC_f
+    Y_o=Conv_XY(BC_o) if BC_o['unit']=='X' else BC_o
+    YC_f=Yc( Y_f , Mol_m )
+    YH_f=Yh( Y_f , Mol_m )
+    YO_o=Yo( Y_o , Mol_m )
+    YC_g=Yc( D_compo , Mol_m )
+    YH_g=Yh( D_compo , Mol_m )
+    YO_g=Yo( D_compo , Mol_m )
+    den=(2*YC_f/Mol_m['C']+0.5*YH_f/Mol_m['H']+YO_o/Mol_m['O'])
+    Zg=(2*YC_g/Mol_m['C']+0.5*YH_g/Mol_m['H']+(YO_o-YO_g)/Mol_m['O'])/den
+    Zs=(                                       YO_o      /Mol_m['O'])/den
+    return( Zg,Zs )
+#===================================================================
+def YH_st(BC_f,BC_o) :
+    if BC_f['H2']+BC_f['CH4']==1 and BC_f['unit']=='X' : alp=BC_f['H2']
+    else : sys.exit( util.Col('r','=====> Error : Xf H2 + Xf CH4 != 1 ') )
+    bet=BC_o['CO2']/BC_o['O2'] if 'CO2' in BC_o else 0
+    gam=BC_o['N2' ]/BC_o['O2'] if 'N2'  in BC_o else 0
+    rat=(2-1.5*alp)
+    N={
+        'H2':alp,
+        'CH4':1-alp,
+        'O2':rat,
+        'CO2':bet*rat,
+        'N2' :gam*rat,
+    }
+    n_tot=sum(list(N.values()))
+    Xst={ sp:N[sp]/n_tot for sp in N.keys() } ; Mav_s=W_moy(Xst)# ; print(Xst)
+    return( Mol_m['H']*(4*Xst['CH4']+2*Xst['H2'])/Mav_s ) 
+#===================================================================
 def Zst(BC_f,BC_o) :
 	alp=BC_f['CH4']/BC_f['H2']
 	XH2_s =1/(1.5+3*alp)
@@ -971,10 +1036,3 @@ def Yo(Y,M) : Spe=['O2' ,'CO2','CO','H2O'] ; Id=[2,2,1,1] ; return( M['O']*sum([
 def Yh(Y,M) : Spe=['CH4','H2O','H2']       ; Id=[4,2,2]   ; return( M['H']*sum([ Id[i]*Y[s]/M[s] for i,s in enumerate(Spe) if s in list(Y.keys()) ],axis=0) )
 #===================================================================
 def Umoy(x,V) : return(2*trapz(V*x,x)/(x[-1]-x[0])**2)
-#===================================================================
-def ConvBC_XY(BC) :
-    Spe_bc=[ sp for sp in BC.keys() if sp in Mol_m.keys() ]
-    Mm=sum([ BC[sp]*Mol_m[sp] for sp in Spe_bc ])
-    for sp in Spe_bc :
-        BC[sp]=BC[sp]*Mol_m[sp]/Mm
-    return(BC)
