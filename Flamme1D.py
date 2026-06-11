@@ -578,7 +578,6 @@ def Thick2(X,T,N) :
 	MDT=max(DT) ; Imax=DT.argmax()
 	if MDT>0 : return( (max(T)-min(T))/DT[Imax],Imax,DT )
 	else     : return( 0 , 0 , DT)
-	
 #---------------------------------------------------------------------
 def Setting(Pi,schem,Rafcrit,Tol,Tstep,X0,Ti,L):
 	Set1='H2_Pi={0:1.3e}_{1}'.format(Pi,schem)
