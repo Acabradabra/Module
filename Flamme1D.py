@@ -564,6 +564,31 @@ def ExtractSubmech(schem,view):
 
     return(gas,Spe_name,Nspe,NOx,INOx,NNOx,Reac,Nreac)
 #---------------------------------------------------------------------
+def s_rate(A,b,Ea) : return('{'+f'A: {A:.8e}, b: {b:.8f}, Ea: {Ea:.8e}'+'}')
+def r_yaml(eq,A,b,Ea) :
+	return(f'''
+equation: {eq}
+rate-constant: {s_rate(A,b,Ea)}
+		''')
+#---------------------------------------------------------------------
+def s_tri(vp) :
+	p=[]
+	for s in vp.split(' ')[1:] :
+		m,i=s.split(':')
+		p.append(m+': {:.3f}'.format(float(i)))
+	tri='{'+p[1]
+	for s in p[2:] : tri+=', '+s
+	tri+='}'
+	return(tri)
+#---------------------------------------------------------------------
+def s_tro(vp) :
+	# print(vp)
+	p=[float(x) for x in vp.split(' ') if x ] #; print(p)
+	if   len(p)==3 : tro='{'+'A: {:.3f}, T3: {:.3f}, T1: {:.3f}'.            format(p[0],p[1],p[2]     )+'}' #; print(tro)
+	elif len(p)==4 : tro='{'+'A: {:.3f}, T3: {:.3f}, T1: {:.3f}, T2: {:.3f}'.format(p[0],p[1],p[2],p[3])+'}' #; print(tro)
+	else               : tro='' ; util.Error('Wrong size of troe falloff parameters : {}'.format(len(tro)))
+	return(tro)
+#---------------------------------------------------------------------
 def Thick(X,T,N) :
 	od,stri=5,1e-7,
 	(DT,Test,detD,CD,trace)=util.GradDifFin( [0,od] , 1 ,stri,X,N,T)

@@ -282,28 +282,36 @@ def Get_tmix(M,T,OPT) :
     else : Cmix=OPT[iopt+1][0]
     return( Cmix*(Mk/Me) )
 #===================================================================
-def Vxyz(plan,M,T) :
+def Vxyz(plan,M,T,Sel_opt) :
+    Verb=False
     if isinstance(plan,str) :
         Vx,Vy,Vz=[],[],[]
+        if len(Sel_opt)>0 and Sel_opt[-1] == 'vel' : var='velocity'
+        else : var='coordinate'
         if isinstance(M,dict) :
-            if 'x-coordinate' in T : Vx=M['x-coordinate']
-            if 'y-coordinate' in T : Vy=M['y-coordinate']
-            if 'z-coordinate' in T : Vz=M['z-coordinate']
+            if 'x-'+var in T : Vx=M['x-'+var]
+            if 'y-'+var in T : Vy=M['y-'+var]
+            if 'z-'+var in T : Vz=M['z-'+var]
         else :
-            if 'x-coordinate' in T : Vx=M[:,FindData('x-coordinate',T)]
-            if 'y-coordinate' in T : Vy=M[:,FindData('y-coordinate',T)]
-            if 'z-coordinate' in T : Vz=M[:,FindData('z-coordinate',T)]
-        if len(Vx)>0 : Vx0,Vx1=min(Vx),max(Vx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Vx0,Vx1) )
-        if len(Vy)>0 : Vy0,Vy1=min(Vy),max(Vy) ; print( '=> My : {:.1f} , {:.1f}'.format(Vy0,Vy1) )
-        if len(Vz)>0 : Vz0,Vz1=min(Vz),max(Vz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Vz0,Vz1) )
+            if 'x-'+var in T : Vx=M[:,FindData('x-'+var,T)]
+            if 'y-'+var in T : Vy=M[:,FindData('y-'+var,T)]
+            if 'z-'+var in T : Vz=M[:,FindData('z-'+var,T)]
+        if len(Vx)>0 and Verb : Vx0,Vx1=min(Vx),max(Vx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Vx0,Vx1) )
+        if len(Vy)>0 and Verb : Vy0,Vy1=min(Vy),max(Vy) ; print( '=> My : {:.1f} , {:.1f}'.format(Vy0,Vy1) )
+        if len(Vz)>0 and Verb : Vz0,Vz1=min(Vz),max(Vz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Vz0,Vz1) )
         if   plan[0]=='x' : V1=Vx
         elif plan[0]=='y' : V1=Vy
         elif plan[0]=='z' : V1=Vz
         if   plan[1]=='x' : V2=Vx
         elif plan[1]=='y' : V2=Vy
         elif plan[1]=='z' : V2=Vz
+        if len(Sel_opt)>0 and not Sel_opt[0] == 'vel' :
+            if Sel_opt[0]=='x' : Sel = (Vx>=Sel_opt[1])*(Vx<=Sel_opt[2])
+            if Sel_opt[0]=='y' : Sel = (Vy>=Sel_opt[1])*(Vy<=Sel_opt[2])
+            if Sel_opt[0]=='z' : Sel = (Vz>=Sel_opt[1])*(Vz<=Sel_opt[2])
+        else : Sel = array([True]*len(V1))
     else : (V1,V2)=plan
-    return(V1,V2)
+    return(V1[Sel],V2[Sel],Sel)
 #===================================================================
 def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     cmap=mtp.colormaps[cmap0]
@@ -361,18 +369,21 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         Mr_h2 =M[:,T.index('net-rate-h2' )] ; My_h2 =M[:,T.index('h2' )] ; t_h2 =Mrho*My_h2 /Mr_h2 
         Mr_o2 =M[:,T.index('net-rate-o2' )] ; My_o2 =M[:,T.index('o2' )] ; t_o2 =Mrho*My_o2 /Mr_o2 
         Mv=clip( max(t_ch4,t_co2,t_h2o,t_h2,t_o2) , ticks[0],ticks[-1])
-    else : 
+    elif var in T :
         if isinstance(M,dict) : Mv=M[          var ]
         else                  : Mv=M[:,T.index(var)]
+    else : return(1)
     if 'GAIN' in OPT : Mv*=OPT[OPT.index('GAIN')+1]
-    DW,VL=False,False
-    if 'boundary-cell-dist' in T : Vbd=M['boundary-cell-dist'] if isinstance(M,dict) else M[:,FindData('boundary-cell-dist',T)] ; DW=True
-    if 'velocity-magnitude' in T : Vvl=M['velocity-magnitude'] if isinstance(M,dict) else M[:,FindData('velocity-magnitude',T)] ; VL=True
     Selzx=[]
-    (Mt1,Mt2)=Vxyz(plan,M,T)
+    Sel_opt=OPT[OPT.index('SEL')+1] if 'SEL' in OPT else []
+    (Mt1,Mt2,Sel)=Vxyz(plan,M,T,Sel_opt)
+    Mv=Mv[Sel]
     tri=mtp.tri.Triangulation(Mt1,Mt2)
     if len(xlim)==0 : xlim=[min(Mt1),max(Mt1)] #; print( '=> xlim : {:.3f} , {:.3f}'.format(xlim[0],xlim[1]) )
     if len(ylim)==0 : ylim=[min(Mt2),max(Mt2)] #; print( '=> ylim : {:.3f} , {:.3f}'.format(ylim[0],ylim[1]) )
+    DW,VL=False,False
+    if 'boundary-cell-dist' in T : Vbd=M['boundary-cell-dist'] if isinstance(M,dict) else M[:,FindData('boundary-cell-dist',T)] ; Vbd=Vbd[Sel] ; DW=True
+    if 'velocity-magnitude' in T : Vvl=M['velocity-magnitude'] if isinstance(M,dict) else M[:,FindData('velocity-magnitude',T)] ; Vvl=Vvl[Sel] ; VL=True
     if   DW and max(Vbd)>1.01 : Mask0=sum(Vbd[tri.triangles]<1.01,axis=1)==3 #; print('=> Mask Wall distance')
     elif VL and max(Vvl)>0    : Mask0=sum(Vvl[tri.triangles]==0  ,axis=1)==3 #; print('=> Mask Velocity')
     else                      : Mask0=0*tri.triangles[:,0]+False
@@ -435,7 +446,7 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
             [di,dj,s]=OPT[iopt+1]
             Vx0=arange(xlim[0],xlim[1]+0.1*di,di)
             Vy0=arange(ylim[0],ylim[1]+0.1*dj,dj)
-            (Vi,Vj)=Vxyz(plan,M,T)
+            (Vi,Vj,Sel)=Vxyz(plan,M,T,Sel_opt+['vel'])
             f_Vi=mtp.tri.LinearTriInterpolator( tri,Vi )
             f_Vj=mtp.tri.LinearTriInterpolator( tri,Vj )
             (MXi,MXj)=meshgrid(Vx0,Vy0) #; print(Vx0.min(),Vx0.max(),Vy0.min(),Vy0.max())
@@ -671,6 +682,19 @@ def Mf_sep(Dr,Keys) :
 #===================================================================
 # def Mf_detail(Dr,Keys) :
 #===================================================================
+def Mf_sep3(Dr,Keys) :
+    K_oxy=['f-ot','f-ob','f-os','f-hublo-o']
+    Keys_f=[ Dr[k] for k in Keys[1:] if 'f-f'  in k ] ; N_f=len(Keys_f)
+    Keys_o=[ Dr[k] for k in Keys[1:] if k in K_oxy  ] ; N_o=len(Keys_o)
+    Keys_b=[ Dr[k] for k in Keys[1:] if 'zc'   in k ] ; N_b=len(Keys_b)
+    Keys_l=[ Dr[k] for k in Keys[1:] if '-in'  in k ] ; N_l=len(Keys_l)
+    Mf_f=sum( array( Keys_f ) , axis=0 )
+    Mf_o=sum( array( Keys_o ) , axis=0 )
+    Mf_b=sum( array( Keys_b ) , axis=0 )
+    Mf_l=sum( array( Keys_l ) , axis=0 )
+    Mb=Mf_f+Mf_o+Mf_l+Mf_b
+    return(Mf_f,Mf_o,Mf_b,Mf_l,Mb)
+#===================================================================
 def Mf_sep2(Dr,Keys) :
     Keys_f=[ Dr[k] for k in Keys[1:] if 'f-f'  in k ] ; N_f=len(Keys_f)
     Keys_o=[ Dr[k] for k in Keys[1:] if k in ['f-ot','f-ob','f-os']  ] ; N_o=len(Keys_o)
@@ -697,9 +721,9 @@ def Hl_sep(Dr,Ns,Pow,Verbose=0) :
     hl_front=mean(Dr['f-front'][-Ns:])
     hl_back =mean(Dr['f-back' ][-Ns:])
     hl_walls=hl_top+hl_side+hl_front+hl_back
-    hl_talus=mean(Dr['f-tc'][-Ns:])
-    hl_wb   =mean(Dr['f-wb'][-Ns:])
-    hl_bath =mean(Dr['f-bath'][-Ns:])
+    hl_talus=mean(Dr['f-tc'][-Ns:])   if 'f-tc'   in Dr.keys() else 0
+    hl_wb   =mean(Dr['f-wb'][-Ns:])   if 'f-wb'   in Dr.keys() else 0
+    hl_bath =mean(Dr['f-bath'][-Ns:]) if 'f-bath' in Dr.keys() else 0
     hl_fum  =Pow*1e3+(hl_walls+hl_talus+hl_wb+hl_bath)
     if Verbose>0 :
         print(f'=> Total wall heat loss : {hl_walls*1e-3:.0f} [kW]  ,  {100*hl_walls/(Pow*1e3):.2f} % Pow')
@@ -719,8 +743,12 @@ def Report_read(freport) :
     for n in range(2) : L0=op.readline()
     L0=op.readline()
     op.closed
-    T=[ s.strip()[1:-1] for s in L0[1:-2].split(' ')]
-    if '(' in T[1] : T=['Iteration']+[ k.split('(')[1][:-1] for k in T[1:] if '(' in k ]
+    # T=[ s.strip()[1:-1] for s in L0[1:-2].split(' ')] ; print(T)
+    T0=[ s.strip() for s in L0[2:-3].split('" "')] #; print(T)
+    # if '(' in T[1] : T=['Iteration']+[ k.split('(')[1][:-1] for k in T[1:] if '(' in k ]
+    if '(' in T0[1] : T=T0[:1]+[ k.split('(')[1][:-1] for k in T0[1:] if '(' in k ]
+    else            : T=T0
+    if T0[-1]=='flow-time' : T+=['flow-time']
     M=loadtxt(freport,skiprows=3,delimiter=' ')
     return({ s:M[:,n] for n,s in enumerate(T) })
 #===================================================================
