@@ -377,16 +377,22 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     Selzx=[]
     Sel_opt=OPT[OPT.index('SEL')+1] if 'SEL' in OPT else []
     (Mt1,Mt2,Sel)=Vxyz(plan,M,T,Sel_opt)
-    Mv=Mv[Sel]
+    Mv=Mv[Sel] 
+    if 'Lim' in OPT : Mv[Mv==max(Mv)]=max(Mv)*(1-1e-13)
     tri=mtp.tri.Triangulation(Mt1,Mt2)
     if len(xlim)==0 : xlim=[min(Mt1),max(Mt1)] #; print( '=> xlim : {:.3f} , {:.3f}'.format(xlim[0],xlim[1]) )
     if len(ylim)==0 : ylim=[min(Mt2),max(Mt2)] #; print( '=> ylim : {:.3f} , {:.3f}'.format(ylim[0],ylim[1]) )
     DW,VL=False,False
-    if 'boundary-cell-dist' in T : Vbd=M['boundary-cell-dist'] if isinstance(M,dict) else M[:,FindData('boundary-cell-dist',T)] ; Vbd=Vbd[Sel] ; DW=True
-    if 'velocity-magnitude' in T : Vvl=M['velocity-magnitude'] if isinstance(M,dict) else M[:,FindData('velocity-magnitude',T)] ; Vvl=Vvl[Sel] ; VL=True
-    if   DW and max(Vbd)>1.01 : Mask0=sum(Vbd[tri.triangles]<1.01,axis=1)==3 #; print('=> Mask Wall distance')
-    elif VL and max(Vvl)>0    : Mask0=sum(Vvl[tri.triangles]==0  ,axis=1)==3 #; print('=> Mask Velocity')
-    else                      : Mask0=0*tri.triangles[:,0]+False
+    if 'boundary-cell-dist' in T : Vbd=M['boundary-cell-dist'] if isinstance(M,dict) else M[:,FindData('boundary-cell-dist',T)] ; Vbd=Vbd[Sel] ; DW=True #; print('=> Mask Wall distance')
+    if 'velocity-magnitude' in T : Vvl=M['velocity-magnitude'] if isinstance(M,dict) else M[:,FindData('velocity-magnitude',T)] ; Vvl=Vvl[Sel] ; VL=True #; print('=> Mask Velocity')
+    if 'NoWMask' in OPT or 'NoMask' in OPT : DW=False
+    if 'NoVMask' in OPT or 'NoMask' in OPT : VL=False
+    if DW and max(Vbd)>1.01 : Mask_w=(sum(Vbd[tri.triangles]<1.01,axis=1)==3) #; print('=> Mask Wall distance')
+    if VL and max(Vvl)>0    : Mask_v=(sum(Vvl[tri.triangles]==0  ,axis=1)==3) #; print('=> Mask Velocity')
+    if DW and VL : Mask0=(Mask_w & Mask_v)
+    elif DW      : Mask0=Mask_w
+    elif VL      : Mask0=Mask_v
+    else         : Mask0=0*tri.triangles[:,0]+False
     if len(Selzx)>0 : Mask0[Selzx]=False
     if vmax!=0 : MaskV=all(Mv[tri.triangles]>vmax,axis=1) ; Mask0[MaskV]=True ; Mv[Mv>vmax]=vmax
     if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
@@ -414,6 +420,9 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
             [Lx_t,Ly_t]=OPT[iopt+1]
             # ax.plot( [Mx0,My0+Ly_t],[Mx0+Lx_t,My0],'r' )
             ax.plot( [Mx0,Mx0+Lx_t],[My0+Ly_t,My0],'r' )
+        if  'MESH'  in OPT : #====================> Lines
+            col,lw=OPT[OPT.index('MESH')+1]
+            ax.triplot(tri,color=col,linewidth=lw)
         if  'LINES' in OPT : #====================> Lines
             print('=> Lines')
             iopt=OPT.index('LINES')
@@ -686,7 +695,7 @@ def Mf_sep3(Dr,Keys) :
     K_oxy=['f-ot','f-ob','f-os','f-hublo-o']
     Keys_f=[ Dr[k] for k in Keys[1:] if 'f-f'  in k ] ; N_f=len(Keys_f)
     Keys_o=[ Dr[k] for k in Keys[1:] if k in K_oxy  ] ; N_o=len(Keys_o)
-    Keys_b=[ Dr[k] for k in Keys[1:] if 'zc'   in k ] ; N_b=len(Keys_b)
+    Keys_b=[ Dr[k] for k in Keys[1:] if '-out' in k ] ; N_b=len(Keys_b)
     Keys_l=[ Dr[k] for k in Keys[1:] if '-in'  in k ] ; N_l=len(Keys_l)
     Mf_f=sum( array( Keys_f ) , axis=0 )
     Mf_o=sum( array( Keys_o ) , axis=0 )
@@ -743,9 +752,7 @@ def Report_read(freport) :
     for n in range(2) : L0=op.readline()
     L0=op.readline()
     op.closed
-    # T=[ s.strip()[1:-1] for s in L0[1:-2].split(' ')] ; print(T)
     T0=[ s.strip() for s in L0[2:-3].split('" "')] #; print(T)
-    # if '(' in T[1] : T=['Iteration']+[ k.split('(')[1][:-1] for k in T[1:] if '(' in k ]
     if '(' in T0[1] : T=T0[:1]+[ k.split('(')[1][:-1] for k in T0[1:] if '(' in k ]
     else            : T=T0
     if T0[-1]=='flow-time' : T+=['flow-time']
