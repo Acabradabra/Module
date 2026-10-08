@@ -4,6 +4,7 @@
 from numpy import *
 import h5py as h5
 import sys
+import csv
 # from Precize.PostPro import Dr
 # from Sandia.Scaling import Ns
 import Utilities as util
@@ -14,6 +15,24 @@ import matplotlib.colors as colors
 (plt,mtp)=util.Plot0()
 #=====> Visualisation
 dpi=500
+#======> Normal
+P0=101325 # Pa
+T0=273.15 # K
+#======> Ambiant
+Pamb=101325 # Pa
+Tamb=298.15 # K
+#======> Universal gas constant
+R=8.314 # J/mol K
+#=====> heat capacity ratio
+Gamma={
+    'H2':1.4,
+    'O2':1.4,
+    'N2':1.4,
+    'CO2':1.2,
+    'CH4':1.3,
+    'H2O':1.3,
+    'C2H6':1.2}
+Cp_g={ k:Gamma[k]*R/(Gamma[k]-1) for k in Gamma.keys() }
 #=====> Molar masses (g/mol)
 Mol_m={
     'H':1,
@@ -37,14 +56,6 @@ Mol_m={
     }
 Wa  =0.21*Mol_m['O2']+0.79*Mol_m['N2']
 Mol_m['Air']=Wa
-#======> Normal
-P0=101325 # Pa
-T0=273.15 # K
-#======> Ambiant
-Pamb=101325 # Pa
-Tamb=298.15 # K
-#======> Universal gas constant
-R=8.314 # J/mol K
 #======> Reference density
 Rho0_air=(Mol_m['Air']*P0*1e-3)/(R*T0) # Kg/m3
 Rho0_H2 =(Mol_m['H2'] *P0*1e-3)/(R*T0) # Kg/m3
@@ -299,12 +310,18 @@ def Vxyz(plan,M,T,Sel_opt) :
         if len(Vx)>0 and Verb : Vx0,Vx1=min(Vx),max(Vx) ; print( '=> Mx : {:.1f} , {:.1f}'.format(Vx0,Vx1) )
         if len(Vy)>0 and Verb : Vy0,Vy1=min(Vy),max(Vy) ; print( '=> My : {:.1f} , {:.1f}'.format(Vy0,Vy1) )
         if len(Vz)>0 and Verb : Vz0,Vz1=min(Vz),max(Vz) ; print( '=> Mz : {:.1f} , {:.1f}'.format(Vz0,Vz1) )
-        if   plan[0]=='x' : V1=Vx
-        elif plan[0]=='y' : V1=Vy
-        elif plan[0]=='z' : V1=Vz
-        if   plan[1]=='x' : V2=Vx
-        elif plan[1]=='y' : V2=Vy
-        elif plan[1]=='z' : V2=Vz
+        if   plan[0]=='x' : V1= Vx
+        elif plan[0]=='X' : V1=-Vx
+        elif plan[0]=='y' : V1= Vy
+        elif plan[0]=='Y' : V1=-Vy
+        elif plan[0]=='z' : V1= Vz
+        elif plan[0]=='Z' : V1=-Vz
+        if   plan[1]=='x' : V2= Vx
+        elif plan[1]=='X' : V2=-Vx
+        elif plan[1]=='y' : V2= Vy
+        elif plan[1]=='Y' : V2=-Vy
+        elif plan[1]=='z' : V2= Vz
+        elif plan[1]=='Z' : V2=-Vz
         if len(Sel_opt)>0 and not Sel_opt[0] == 'vel' :
             if Sel_opt[0]=='x' : Sel = (Vx>=Sel_opt[1])*(Vx<=Sel_opt[2])
             if Sel_opt[0]=='y' : Sel = (Vy>=Sel_opt[1])*(Vy<=Sel_opt[2])
@@ -369,6 +386,13 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
         Mr_h2 =M[:,T.index('net-rate-h2' )] ; My_h2 =M[:,T.index('h2' )] ; t_h2 =Mrho*My_h2 /Mr_h2 
         Mr_o2 =M[:,T.index('net-rate-o2' )] ; My_o2 =M[:,T.index('o2' )] ; t_o2 =Mrho*My_o2 /Mr_o2 
         Mv=clip( max(t_ch4,t_co2,t_h2o,t_h2,t_o2) , ticks[0],ticks[-1])
+    elif var=='Mach' :
+        Gam=Gamma_m(Dic_Y(M,T))
+        P  =M[:,T.index('pressure')]+101325
+        Rho=M[:,T.index('density')]
+        Vel=M[:,T.index('velocity-magnitude')]
+        Cs=sqrt( Gam*P/Rho )
+        Mv=Vel/Cs
     elif var in T :
         if isinstance(M,dict) : Mv=M[          var ]
         else                  : Mv=M[:,T.index(var)]
@@ -383,6 +407,8 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     if len(xlim)==0 : xlim=[min(Mt1),max(Mt1)] #; print( '=> xlim : {:.3f} , {:.3f}'.format(xlim[0],xlim[1]) )
     if len(ylim)==0 : ylim=[min(Mt2),max(Mt2)] #; print( '=> ylim : {:.3f} , {:.3f}'.format(ylim[0],ylim[1]) )
     DW,VL=False,False
+    NoMask=0*tri.triangles[:,0]+False
+    Mask_w,Mask_v=NoMask[:],NoMask[:]
     if 'boundary-cell-dist' in T : Vbd=M['boundary-cell-dist'] if isinstance(M,dict) else M[:,FindData('boundary-cell-dist',T)] ; Vbd=Vbd[Sel] ; DW=True #; print('=> Mask Wall distance')
     if 'velocity-magnitude' in T : Vvl=M['velocity-magnitude'] if isinstance(M,dict) else M[:,FindData('velocity-magnitude',T)] ; Vvl=Vvl[Sel] ; VL=True #; print('=> Mask Velocity')
     if 'NoWMask' in OPT or 'NoMask' in OPT : DW=False
@@ -392,7 +418,7 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
     if DW and VL : Mask0=(Mask_w & Mask_v)
     elif DW      : Mask0=Mask_w
     elif VL      : Mask0=Mask_v
-    else         : Mask0=0*tri.triangles[:,0]+False
+    else         : Mask0=NoMask[:]
     if len(Selzx)>0 : Mask0[Selzx]=False
     if vmax!=0 : MaskV=all(Mv[tri.triangles]>vmax,axis=1) ; Mask0[MaskV]=True ; Mv[Mv>vmax]=vmax
     if vmin!=0 : MaskV=all(Mv[tri.triangles]<vmin,axis=1) ; Mask0[MaskV]=True ; Mv[Mv<vmin]=vmin
@@ -485,12 +511,15 @@ def Visu(surf,plan,var,lab,xlim,ylim,ticks,cmesh,BD,fs,cmap0,name,OPT) :
             f=ax.tricontour( tri,M[:,Itr],levels=Viso,colors='r',linewidths=1 )
         if 'ISO' in OPT : #====================> Isolines
             print('=> isolines')
-            iopt=OPT.index('ISO')
-            Viso=OPT[iopt+1]
-            f=ax.tricontour( tri,Mv,levels=Viso,colors='w',linewidths=1 )
-            # for path in f.collections[0].get_paths() :
-                #  points=path.vertices
-                #  if len(points)>0 : print('=> Xmin : {:.3f} [mm]  ,  Xmax : {:.3f} [mm]  ,  Dx : {:.3f} [mm]'.format(min(points[:,0]),max(points[:,0]),max(points[:,0])-min(points[:,0])))
+            iopt=OPT.index('ISO') ; opt=OPT[iopt+1]
+            f=ax.tricontour( tri,Mv,levels=opt[0],colors=opt[1],linewidths=1 )
+            if len(opt)>2 and 'write' in opt :
+                for n,path in enumerate(f.get_paths()) :
+                    f_iso=open(name[:-4]+f'-Path-{n}.dat','w')
+                    writer=csv.writer(f_iso)
+                    f_iso.write(f'=> Level : {opt[0][n]}\n')
+                    writer.writerows(path.vertices)
+                    f_iso.closed
         if 'INTERP' in OPT : #====================> Interpolation
             print('=> Interpolation')
             f=mtp.tri.LinearTriInterpolator( tri,Mv )
@@ -525,10 +554,12 @@ def Field_light(fig,ax,tri,F,v,Log,xlim,ylim,cmap,CMask) :
     cb.set_label(lab,fontsize=20)
 #===================================================================
 def Field2(tri,F,lab,Log,xlim,ylim,BD,ticks,cmesh,cmap,CMask,SAVE,name,fs) :
+    if len(fs)>2 : r=fs[2] ; fs=fs[:2] #; print('aspect : ',r)
+    else         : r='equal'
     fig,ax=plt.subplots(figsize=fs,dpi=dpi) #,layout='constrained')
     # fig.suptitle(lab,fontsize=20)
     ax.set_title(lab,fontsize=20)
-    ax.set_aspect('equal')
+    ax.set_aspect(r)
     # if vmax>0 : F[F>vmax]=vmax
     # else      : vmax=max(F) #; print(vmax)
 
@@ -725,14 +756,21 @@ def Mf_sep2(Dr,Keys) :
     return(Mf_f,Mf_o,Mf_b,Mf_l,Mf_s,Mb)
 #===================================================================
 def Hl_sep(Dr,Ns,Pow,Verbose=0) :
-    hl_top  =mean(Dr['f-top'  ][-Ns:])
-    hl_side =mean(Dr['f-side' ][-Ns:])
-    hl_front=mean(Dr['f-front'][-Ns:])
-    hl_back =mean(Dr['f-back' ][-Ns:])
-    hl_walls=hl_top+hl_side+hl_front+hl_back
-    hl_talus=mean(Dr['f-tc'][-Ns:])   if 'f-tc'   in Dr.keys() else 0
-    hl_wb   =mean(Dr['f-wb'][-Ns:])   if 'f-wb'   in Dr.keys() else 0
-    hl_bath =mean(Dr['f-bath'][-Ns:]) if 'f-bath' in Dr.keys() else 0
+    def Group_hl(L) : 
+        HL=sum( [Dr[k] for k in L if k in Dr] , axis=0)
+        hl=mean(HL[-Ns:]) if isinstance(HL,(list,ndarray)) else 0
+        return(HL,hl)
+    (Hl_top  ,hl_top  )=Group_hl(['f-top'              ]) #=====> Walls
+    (Hl_front,hl_front)=Group_hl(['f-front'            ])
+    (Hl_side ,hl_side )=Group_hl(['f-side' ,'f-side-t' ])
+    (Hl_back ,hl_back )=Group_hl(['f-back' ,'f-back-t' ])
+    (Hl_floor,hl_floor)=Group_hl(['f-floor','f-floor-t'])
+    (Hl_talus,hl_talus)=Group_hl(['f-tc'               ]) #=====> Others
+    (Hl_wb   ,hl_wb   )=Group_hl(['f-wb','f-wb-front','f-wb-side','f-wb-back','f-wb-t'])
+    (Hl_bath ,hl_bath )=Group_hl(['f-bath'             ])
+    Hl=[Hl_top,Hl_front,Hl_side,Hl_back,Hl_floor,Hl_talus,Hl_wb,Hl_bath]
+    hl=[hl_top,hl_front,hl_side,hl_back,hl_floor,hl_talus,hl_wb,hl_bath]
+    hl_walls=hl_top+hl_side+hl_front+hl_back+hl_floor
     hl_fum  =Pow*1e3+(hl_walls+hl_talus+hl_wb+hl_bath)
     if Verbose>0 :
         print(f'=> Total wall heat loss : {hl_walls*1e-3:.0f} [kW]  ,  {100*hl_walls/(Pow*1e3):.2f} % Pow')
@@ -745,7 +783,8 @@ def Hl_sep(Dr,Ns,Pow,Verbose=0) :
         print(f'=> Side  heat loss : {hl_side *1e-3:.0f} [kW]  ,  {100*hl_side /(Pow*1e3):.2f} % Pow')
         print(f'=> Front heat loss : {hl_front*1e-3:.0f} [kW]  ,  {100*hl_front/(Pow*1e3):.2f} % Pow')
         print(f'=> Back  heat loss : {hl_back *1e-3:.0f} [kW]  ,  {100*hl_back /(Pow*1e3):.2f} % Pow')
-    return(hl_walls,hl_talus,hl_wb,hl_bath)
+        print(f'=> Floor heat loss : {hl_floor*1e-3:.0f} [kW]  ,  {100*hl_floor/(Pow*1e3):.2f} % Pow')
+    return(hl_walls,Hl,hl)
 #===================================================================
 def Report_read(freport) :
     op=open(freport)
@@ -920,6 +959,8 @@ def Mach_Face(dat,Thermo,PLOT,tri,P_f,I_f,Nft,Nfi,xlim,ylim,cmap,CMask,Mesh,dirP
         Field( tri, Cel ,'Sound speed [m/s]'  ,False,xlim,ylim,0,[]                ,cmap,CMask, True,dirP+'/Visu-{}-{}.png'.format(Mesh,'Cel' ) )
     # return(Vel/Cel)
     return(P,T,YH2,YO2,YN2,M,Vel,Cel,Vel/Cel)
+#===================================================================
+def Gamma_m(Y_compo) : Cp_m=sum( [Y_compo[k]*Cp_g[k] for k in Y_compo.keys() if k in Cp_g.keys()],axis=0) ; return( Cp_m/(Cp_m-R) )
 #===================================================================
 def Mach_Number(dat,Thermo,PLOT,tri,P_c,xlim,ylim,cmap,CMask,Mesh,dirP) :
 	[R,MH2,MO2,MN2,gam]=Thermo

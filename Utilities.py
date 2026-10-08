@@ -274,6 +274,18 @@ def SaveFig(fig,name) :
 	plt.close(fig)
 	Section('Fig saved : '+name,0,2,'g')
 #---------------------------------------------------------------------
+def SepSeg(Pts,h0) :
+	V1_n=np.append(Pts[:,0],Pts[:,0][0])
+	V2_n=np.append(Pts[:,1],Pts[:,1][0])
+	DV1=V1_n[1:]-V1_n[:-1]
+	DV2=V2_n[1:]-V2_n[:-1]
+	h=np.hypot(DV1,DV2) ; hm=np.mean(h)
+	Sep=h>hm*h0 ; Ids=np.array(range(len(h)))[Sep] ; print(Ids)
+	i0=0
+	Seg=[]
+	for i1 in Ids : Seg.append(Pts[i0:i1+1]) ; i0=i1+1
+	return(Seg)
+#---------------------------------------------------------------------
 ######################################             Math              #
 #---------------------------------------------------------------------
 def Nearest(array, value):
